@@ -1,11 +1,13 @@
 package genericLibrary;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Properties;
 import java.util.Set;
 
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
@@ -15,68 +17,105 @@ import org.openqa.selenium.io.FileHandler;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
-public class UtilityMethods {
+import com.relevantcodes.extentreports.ExtentReports;
+import com.relevantcodes.extentreports.ExtentTest;
+
+
+
+public class UtilityMethods implements FrameworkConstants  {
 	
-	public WebDriver driver;
-	public Select select;
-	public Actions action;
-	public WebDriverWait wait;
+	public static WebDriver driver;
+	public static ExtentReports report;
+	public static ExtentTest test;
+	public static WebDriverWait explicitWait;
+	public static String URL;
+	public static String browserName;
+	public static JavascriptExecutor js;
+	public static Actions action;
+
 	
+	/*Initialize objects of JS, actions, */
 	public void initObjects() {
-		action=new Actions(driver);
-		wait=new WebDriverWait(driver, Duration.ofSeconds(10));
 		
+		js = (JavascriptExecutor) driver;
+		action = new Actions(driver);
+				
+	}
+
+	public static String name() {
+		LocalDateTime sysdate=LocalDateTime.now();
+		String name=sysdate.toString().replace(":", "-");
+		return name;
+	}
+	
+	public String get_title() {
+		String title= driver.getTitle();
+		 return title;
+	}
+
+	public String get_url() {		
+		String CurrentURL=driver.getCurrentUrl();
+		return CurrentURL;
+	}
+
+	public void clickAction(WebElement element_To_Click) {
+		element_To_Click.click();
+	}
+
+	public void enter_value(WebElement TextField,String value) {		
+		TextField.sendKeys(value);
 	}
 
 	
-	public  void getScreenshot() {
-		LocalDateTime dateTime=LocalDateTime.now();
-		String dataStamp=dateTime.toString().replaceAll(":", "-");
-		
-		TakesScreenshot ts = (TakesScreenshot) driver;
-		File temp = ts.getScreenshotAs(OutputType.FILE);
-		File dest=new File("./Screenshots/"+dataStamp+".png");
+	public void switchToASpecificTitledWindow(String title) { 
+		String parentWindowId = driver.getWindowHandle(); 
+
+		Set<String> allWindowIds = driver.getWindowHandles(); allWindowIds.remove(parentWindowId); 
+		for(String windowId:allWindowIds){ driver.switchTo().window(windowId);
+		if(driver.getTitle().equalsIgnoreCase(title)){ 
+			break; 
+		} 
+		} 
+	} 
+	public void switchToASpecificWindow(WebElement element) {
+
+		String parent=driver.getWindowHandle(); 
+		Set<String> allWid=driver.getWindowHandles(); 
+		allWid.remove(parent); 
+		for(String sessionID:allWid){ 
+			driver.switchTo().window(sessionID);
+
+			if(element.isDisplayed()){ 
+				break; 
+			} 
+		} 
+	}
+	public static String getPhoto(WebDriver driver) {
+
+		String imgPath=SCREENSHOT_PATH+name()+".png";
+		TakesScreenshot takeScreenShot=(TakesScreenshot)driver;
+		File source=takeScreenShot.getScreenshotAs(OutputType.FILE);
+		File destination= new File(imgPath);
 		try {
-			FileHandler.copy(temp, dest);
+			FileHandler.copy(source, destination);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}	
+		}
+		return "."+imgPath;
 	}
 	
-	public void selectOptionInDropDown(WebElement listbox, String option) {
-		Select select = new Select(listbox);
-		int counter = 0;
-		try {
-			int index = Integer.parseInt(option);
-			select.selectByIndex(index);
-			counter++;
-		} catch (Exception e) {
-			System.out.println("It is not a index");
-		}
-		if (counter == 0) {
-			try {
-				select.selectByVisibleText(option);
-			} catch (Exception e) {
-				select.selectByValue(option);
-			}
-		}
-	}	
-	public void switchToParticularTitledWindow(String title) throws InterruptedException {	
-		String parentWindowHandle=driver.getWindowHandle();
-		Set<String> windowHandles = driver.getWindowHandles();
-		windowHandles.remove(parentWindowHandle);
-		for(String handle:windowHandles) {
-			driver.switchTo().window(handle);
-				Thread.sleep(5000);
-				if(driver.getTitle().contains(title)) {
-					break;
-				}
-			
-		}
-		
-		
+	/**
+	 * This method read the properties and return the value based on key
+	 * @param key
+	 * @return value
+	 * @throws Throwable
+	 */
+	public String  getValueProperty(String key) throws Throwable {
+		FileInputStream file=new FileInputStream(PROPERTIES_PATH);
+		Properties properties=new Properties();
+		properties.load(file);
+		return properties.getProperty(key);
 	}
-	
-	
+
 }
