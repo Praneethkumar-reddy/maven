@@ -1,0 +1,457 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sl240\slmult1\f0\fs16\lang9 Sub SDF_STATUS()\par
+    ' Variable declarations\par
+    Dim makeChangestyp_max As Boolean\par
+    Dim makeChangestyp_min As Boolean\par
+    Dim makeChangesmaxmax As Boolean\par
+    Dim makeChangesminmin As Boolean\par
+    Dim excludedSheets As Variant\par
+    Dim includedSheets As Variant\par
+    Dim wsMain As Worksheet\par
+    Dim lastRow As Long\par
+    Dim lastCol As Long\par
+    Dim rng As Range\par
+    Dim testplanTotal As Long\par
+    Dim regressionTotal As Long\par
+    Dim CSV_FILE_PATHS As Variant\par
+    Dim filePath As Variant\par
+    Dim fileIndex As Long\par
+    Dim wbRegression As Workbook\par
+    Dim CSV_FILE_PATH As String\par
+    Dim mainLastRow As Long\par
+    Dim regressionLastRow As Long\par
+    Dim mainTestIDs As Range\par
+    Dim testIDDict As Object\par
+    Dim lastRowCSV As Long\par
+    Dim i As Long\par
+    Dim testID As String\par
+    Dim OutputRow As Long\par
+    Dim LastRowTestPlan As Long\par
+    Dim LastRowRegression As Long\par
+    Dim TestPlanIDs As Range\par
+    Dim RegressionIDs As Range\par
+    Dim RegressionID As Range\par
+    Dim tpTestsNotInRegression As Long\par
+    Dim lastRowT As Long\par
+    Dim missingInTP As Long\par
+    Dim coverage As Double\par
+    Dim ws As Worksheet\par
+    Dim sheetExcluded As Boolean\par
+    Dim sheetIncluded As Boolean\par
+    Dim compareLastRow As Long\par
+    Dim compareTestIDCol As Range\par
+    Dim cell As Range\par
+    Dim found As Range\par
+    Dim lastRowA As Long\par
+    Dim key As Variant\par
+    Dim colMDict As Object\par
+    Dim lastRowM As Long\par
+    Dim testIDM As String\par
+    Dim OutputRowY As Long\par
+    Dim dict As Object\par
+    Dim keyValue As String\par
+    Dim lastRowX As Long\par
+    Dim compareValue As String\par
+    Dim matchRow As Long\par
+    Dim duplicateTests As Long\par
+    Dim sheetType As String\par
+    Dim response As VbMsgBoxResult\par
+    \par
+    On Error GoTo ErrorHandler\par
+    \par
+    ' Get user selection for sheet type\par
+    response = MsgBox("Select sheet type:" & vbCrLf & _\par
+                     "Yes = CT_SDF" & vbCrLf & _\par
+                     "No = SHMEM_SDF", _\par
+                     vbYesNo + vbQuestion, "Select Sheet Type")\par
+    \par
+    If response = vbYes Then\par
+        sheetType = "CT_SDF"\par
+    ElseIf response = vbNo Then\par
+        sheetType = "SHMEM_SDF"\par
+    Else\par
+        Exit Sub\par
+    End If\par
+    \par
+    ' Initialize variables\par
+    makeChangestyp_max = True\par
+    makeChangestyp_min = True\par
+    makeChangesmaxmax = True\par
+    makeChangesminmin = True\par
+    tpTestsNotInRegression = 0\par
+    \par
+    Application.ScreenUpdating = False\par
+    Application.Calculation = xlCalculationManual\par
+    \par
+    ' Define excluded/included sheets based on type\par
+    If sheetType = "CT_SDF" Then\par
+        excludedSheets = Array("TP_COVERAGE_UPF", "TP_COVERAGE_SHMEM_SDF", "TP_COVERAGE_CT_SDF", "TP_COVERAGE_CT_TYP_MAX", "TP_COVERAGE_CT_TYP_MIN", _\par
+                             "TP_COVERAGE_SHMEM_TYP_MAX", "TP_COVERAGE_SHMEM_TYP_MIN", "TP_COVERAGE_CT_TYP_MAX_MAX", _\par
+                             "TP_COVERAGE_CT_TYP_MIN_MIN", "TP_COVERAGE_SHMEM_TYP_MAX_MAX", "TP_COVERAGE_SHMEM_TYP_MIN_MIN", _\par
+                             "TP_COVERAGE_PG0_DELAY", "TP_COVERAGE_SH_MEM_UPF", "TP_COVERAGE_SH_MEM_PG0_DELAY", _\par
+                             "TP_COVERAGE_SHMEM_SDF_TYP_MIN", "TP_COVERAGE_SHMEM_SDF_TYP_MAX", "TP_COVERAGE_CT_SDF_TYP_MIN", _\par
+                             "TP_COVERAGE_CT_SDF_TYP_MAX", "TP_COVERAGE_GLS_SDF", "GLS_SDF_SANITY_HP", "CHIP_TOP", "MBIST", _\par
+                             "PINMUX", "apb_i2c", "OSPI_SS", "JPEG_SS", "MRAM_SS", "ZAPHOD_SS", "ISP_SS", "SHARED_MEM_SS", _\par
+                             "MRAM_RC_SS", "CVM_OCVM_SS", "CPI_ISP_SS", "MRAM_SS_OLD", "OSPI_SS_plan", "JPEG_SS_OLD")\par
+        Set wsMain = ThisWorkbook.Sheets("TP_COVERAGE_CT_SDF")\par
+    Else\par
+        includedSheets = GetSheetsEndingWith("_SS")\par
+        Set wsMain = ThisWorkbook.Sheets("TP_COVERAGE_SHMEM_SDF")\par
+    End If\par
+    \par
+    ' Format main worksheet\par
+    With wsMain\par
+        lastRow = .Cells(.Rows.Count, "C").End(xlUp).row\par
+        lastCol = .Cells(1, .Columns.Count).End(xlToLeft).Column\par
+        Set rng = .Range(.Cells(2, 1), .Cells(lastRow, lastCol))\par
+        rng.WrapText = False\par
+    End With\par
+    \par
+    ' Process duplicate Test IDs\par
+    Set colMDict = CreateObject("Scripting.Dictionary")\par
+    With wsMain\par
+        lastRowM = .Cells(.Rows.Count, IIf(sheetType = "CT_SDF", "M", "L")).End(xlUp).row\par
+        For i = 2 To lastRowM\par
+            testIDM = Trim(.Cells(i, IIf(sheetType = "CT_SDF", "M", "L")).Value)\par
+            If testIDM <> "" Then\par
+                If colMDict.exists(testIDM) Then\par
+                    colMDict(testIDM) = colMDict(testIDM) + 1\par
+                Else\par
+                    colMDict.Add testIDM, 1\par
+                End If\par
+            End If\par
+        Next i\par
+        \par
+        OutputRowY = 2\par
+        For Each key In colMDict.keys\par
+            If colMDict(key) > 1 Then\par
+                .Cells(OutputRowY, IIf(sheetType = "CT_SDF", 29, 28)).Value = key\par
+                OutputRowY = OutputRowY + 1\par
+            End If\par
+        Next key\par
+    End With\par
+    \par
+    ' Define CSV file paths based on type\par
+    If sheetType = "CT_SDF" Then\par
+        CSV_FILE_PATHS = Array( _\par
+            "C:\\Users\\PP001028925\\Documents\\Regression_CT_TYP_MAX.csv", _\par
+            "C:\\Users\\PP001028925\\Documents\\Regression_CT_TYP_MIN.csv", _\par
+            "C:\\Users\\PP001028925\\Documents\\Regression_CT_TYP_MAX.csv", _\par
+            "C:\\Users\\PP001028925\\Documents\\Regression_CT_TYP_MIN.csv")\par
+    Else\par
+        CSV_FILE_PATHS = Array( _\par
+            "C:\\Users\\PP001028925\\Documents\\Regression_SHMEM_TYP_MAX.csv", _\par
+            "C:\\Users\\PP001028925\\Documents\\Regression_SHMEM_TYP_MIN.csv", _\par
+            "C:\\Users\\PP001028925\\Documents\\Regression_SHMEM_TYP_MAX_MAX.csv", _\par
+            "C:\\Users\\PP001028925\\Documents\\Regression_SHMEM_TYP_MIN_MIN.csv")\par
+    End If\par
+    \par
+    ' Process regression files\par
+    For fileIndex = LBound(CSV_FILE_PATHS) To UBound(CSV_FILE_PATHS)\par
+        If Dir(CStr(CSV_FILE_PATHS(fileIndex))) = "" Then\par
+            MsgBox "Regression CSV file not found at: " & CSV_FILE_PATHS(fileIndex), vbCritical\par
+            GoTo NextFile\par
+        End If\par
+        \par
+        Set wbRegression = Workbooks.Open(CSV_FILE_PATHS(fileIndex))\par
+        With wbRegression.Sheets(1)\par
+            If Not IsEmpty(.Cells(2, 7)) Then\par
+                .Cells(2, 7).Copy\par
+                wsMain.Cells(fileIndex + 2, 2).PasteSpecial xlPasteValues\par
+            End If\par
+        End With\par
+        wbRegression.Close False\par
+        \par
+NextFile:\par
+    Next fileIndex\par
+    \par
+    ' Process main regression file\par
+    CSV_FILE_PATH = CSV_FILE_PATHS(0)\par
+    If Dir(CSV_FILE_PATH) = "" Then\par
+        MsgBox "Main regression CSV file not found at: " & CSV_FILE_PATH, vbCritical\par
+        GoTo CleanupAndExit\par
+    End If\par
+    \par
+    Set wbRegression = Workbooks.Open(CSV_FILE_PATH)\par
+    \par
+    ' Calculate metrics and update worksheet\par
+    mainLastRow = wsMain.Cells(wsMain.Rows.Count, "C").End(xlUp).row\par
+    Set mainTestIDs = wsMain.Range(wsMain.Cells(2, IIf(sheetType = "CT_SDF", "M", "L")), _\par
+                                 wsMain.Cells(mainLastRow, IIf(sheetType = "CT_SDF", "M", "L")))\par
+    \par
+    ' Format headers\par
+    With wsMain.Range(wsMain.Cells(1, 1), wsMain.Cells(1, IIf(sheetType = "CT_SDF", 24, 28)))\par
+        .HorizontalAlignment = xlCenter\par
+        .VerticalAlignment = xlCenter\par
+        .WrapText = True\par
+        .Font.Bold = True\par
+        .Interior.Color = RGB(200, 200, 200)\par
+    End With\par
+    \par
+    ' Calculate totals\par
+    testplanTotal = mainLastRow - 1\par
+    \par
+    ' Process regression data\par
+    Set testIDDict = CreateObject("Scripting.Dictionary")\par
+    With wbRegression.Sheets(1)\par
+        lastRowCSV = .Cells(.Rows.Count, "E").End(xlUp).row\par
+        regressionTotal = lastRowCSV - 1\par
+        \par
+        For i = 2 To lastRowCSV\par
+            testID = Trim(.Cells(i, "E").Value)\par
+            If testID <> "" Then\par
+                If testIDDict.exists(testID) Then\par
+                    testIDDict(testID) = testIDDict(testID) + 1\par
+                Else\par
+                    testIDDict.Add testID, 1\par
+                End If\par
+            End If\par
+        Next i\par
+        \par
+        ' Process duplicate regression IDs\par
+        OutputRow = 2\par
+        For Each key In testIDDict.keys\par
+            If testIDDict(key) > 1 Then\par
+                wsMain.Cells(OutputRow, IIf(sheetType = "CT_SDF", 25, 24)).Value = key\par
+                OutputRow = OutputRow + 1\par
+            End If\par
+        Next key\par
+        \par
+        ' Process missing tests\par
+        LastRowTestPlan = wsMain.Cells(wsMain.Rows.Count, IIf(sheetType = "CT_SDF", "D", "C")).End(xlUp).row\par
+        LastRowRegression = .Cells(.Rows.Count, "E").End(xlUp).row\par
+        Set TestPlanIDs = wsMain.Range(wsMain.Cells(2, IIf(sheetType = "CT_SDF", "M", "L")), _\par
+                                     wsMain.Cells(LastRowTestPlan, IIf(sheetType = "CT_SDF", "M", "L")))\par
+        Set RegressionIDs = .Range("E2:E" & LastRowRegression)\par
+        \par
+        OutputRow = 2\par
+        For Each RegressionID In RegressionIDs\par
+            If Not IsEmpty(RegressionID) Then\par
+                If IsError(Application.Match(RegressionID.Value, TestPlanIDs, 0)) Then\par
+                    wsMain.Cells(OutputRow, IIf(sheetType = "CT_SDF", 20, 19)).Value = RegressionID.Value\par
+                    OutputRow = OutputRow + 1\par
+                End If\par
+            End If\par
+        Next RegressionID\par
+    End With\par
+    \par
+    ' Count missing tests\par
+    For i = 2 To mainLastRow\par
+        If Trim(wsMain.Cells(i, "C").Value) = "" Then\par
+            wsMain.Cells(i, IIf(sheetType = "CT_SDF", "N", "M")).Value = "Test ID not found"\par
+            tpTestsNotInRegression = tpTestsNotInRegression + 1\par
+        End If\par
+    Next i\par
+    \par
+    ' Update serial numbers\par
+    With wsMain\par
+        lastRowT = .Cells(.Rows.Count, IIf(sheetType = "CT_SDF", "T", "S")).End(xlUp).row\par
+        If lastRowT >= 2 Then\par
+            For i = 2 To lastRowT\par
+                .Cells(i, IIf(sheetType = "CT_SDF", "S", "R")).Value = i - 1\par
+            Next i\par
+        End If\par
+    End With\par
+    \par
+    ' Set up dictionary for matching\par
+    lastRow = wsMain.Cells(wsMain.Rows.Count, IIf(sheetType = "CT_SDF", "M", "L")).End(xlUp).row\par
+    Set dict = CreateObject("Scripting.Dictionary")\par
+    For i = 2 To lastRow\par
+        keyValue = Trim(wsMain.Cells(i, IIf(sheetType = "CT_SDF", "M", "L")).Value)\par
+        If keyValue <> "" Then\par
+            If Not dict.exists(keyValue) Then\par
+                dict.Add keyValue, i\par
+            End If\par
+        End If\par
+    Next i\par
+    \par
+    ' Update related values\par
+    lastRowX = wsMain.Cells(wsMain.Rows.Count, IIf(sheetType = "CT_SDF", "Y", "X")).End(xlUp).row\par
+    For i = 2 To lastRowX\par
+        compareValue = Trim(wsMain.Cells(i, IIf(sheetType = "CT_SDF", "Y", "X")).Value)\par
+        If compareValue <> "" And dict.exists(compareValue) Then\par
+            matchRow = dict(compareValue)\par
+            wsMain.Cells(i, IIf(sheetType = "CT_SDF", "Z", "Y")).Value = _\par
+                wsMain.Cells(matchRow, IIf(sheetType = "CT_SDF", "O", "N")).Value\par
+        End If\par
+    Next i\par
+    \par
+    ' Update related sheets\par
+    For Each ws In ThisWorkbook.Worksheets\par
+        If sheetType = "CT_SDF" Then\par
+            sheetExcluded = False\par
+            For i = LBound(excludedSheets) To UBound(excludedSheets)\par
+                If ws.Name = excludedSheets(i) Then\par
+                    sheetExcluded = True\par
+                    Exit For\par
+                End If\par
+            Next i\par
+            \par
+            If Not sheetExcluded And ws.Name <> wsMain.Name Then\par
+                compareLastRow = ws.Cells(ws.Rows.Count, "D").End(xlUp).row\par
+                Set compareTestIDCol = ws.Range("D2:D" & compareLastRow)\par
+                For Each cell In mainTestIDs\par
+                    If Not IsEmpty(cell.Value) Then\par
+                        Set found = compareTestIDCol.Find(cell.Value, LookIn:=xlValues, LookAt:=xlWhole)\par
+                        If Not found Is Nothing Then\par
+                            If makeChangestyp_max Then\par
+                                ws.Cells(found.row, "K").Value = ws.Cells(found.row, "J").Value\par
+                            End If\par
+                            ws.Cells(found.row, "J").Value = wsMain.Cells(cell.row, "C").Value\par
+                            \par
+                            If makeChangestyp_min Then\par
+                                ws.Cells(found.row, "M").Value = ws.Cells(found.row, "L").Value\par
+                            End If\par
+                            ws.Cells(found.row, "L").Value = wsMain.Cells(cell.row, "E").Value\par
+                            \par
+                            If makeChangesmaxmax Then\par
+                                ws.Cells(found.row, "O").Value = ws.Cells(found.row, "N").Value\par
+                            End If\par
+                            ws.Cells(found.row, "N").Value = wsMain.Cells(cell.row, "G").Value\par
+                            \par
+                            If makeChangesminmin Then\par
+                                ws.Cells(found.row, "Q").Value = ws.Cells(found.row, "P").Value\par
+                            End If\par
+                            ws.Cells(found.row, "P").Value = wsMain.Cells(cell.row, "I").Value\par
+                        End If\par
+                    End If\par
+                Next cell\par
+            End If\par
+        Else ' SHMEM_SDF\par
+            sheetIncluded = False\par
+            For i = LBound(includedSheets) To UBound(includedSheets)\par
+                If ws.Name = includedSheets(i) Then\par
+                    sheetIncluded = True\par
+                    Exit For\par
+                End If\par
+            Next i\par
+            \par
+            If sheetIncluded Then\par
+                compareLastRow = ws.Cells(ws.Rows.Count, "C").End(xlUp).row\par
+                Set compareTestIDCol = ws.Range("C2:C" & compareLastRow)\par
+                For Each cell In mainTestIDs\par
+                    If Not IsEmpty(cell.Value) Then\par
+                        Set found = compareTestIDCol.Find(cell.Value, LookIn:=xlValues, LookAt:=xlWhole)\par
+                        If Not found Is Nothing Then\par
+                            If makeChangestyp_max Then\par
+                                ws.Cells(found.row, "J").Value = ws.Cells(found.row, "I").Value\par
+                            End If\par
+                            ws.Cells(found.row, "I").Value = wsMain.Cells(cell.row, "C").Value\par
+                            \par
+                            If makeChangestyp_min Then\par
+                                ws.Cells(found.row, "L").Value = ws.Cells(found.row, "K").Value\par
+                            End If\par
+                            ws.Cells(found.row, "K").Value = wsMain.Cells(cell.row, "E").Value\par
+                            \par
+                            If makeChangesmaxmax Then\par
+                                ws.Cells(found.row, "N").Value = ws.Cells(found.row, "M").Value\par
+                            End If\par
+                            ws.Cells(found.row, "M").Value = wsMain.Cells(cell.row, "G").Value\par
+                            \par
+                            If makeChangesminmin Then\par
+                                ws.Cells(found.row, "P").Value = ws.Cells(found.row, "O").Value\par
+                            End If\par
+                            ws.Cells(found.row, "O").Value = wsMain.Cells(cell.row, "I").Value\par
+                        End If\par
+                    End If\par
+                Next cell\par
+            End If\par
+        End If\par
+    Next ws\par
+\par
+    ' Update worksheet headers and statistics\par
+    With wsMain\par
+        .Cells(1, 1).Value = "SDF " & IIf(sheetType = "CT_SDF", "CT", "SHMEM") & " Coverage (" & Format(Date, "DD-MMM-YYYY") & ")"\par
+        .Cells(1, 2).Value = "Regression Sheets"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 14, 13)).Value = "TP tests missing from regression"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 16, 15)).Value = "Comment"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 17, 16)).Value = "Status"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 19, 18)).Value = "Sr.No"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 20, 19)).Value = "Regression tests missing in TP"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 21, 20)).Value = "Owner"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 22, 21)).Value = "Comment"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 23, 22)).Value = "Status"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 25, 24)).Value = "Duplicate Test ID's in regression"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 26, 25)).Value = "Owner"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 27, 26)).Value = "Comment"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 28, 27)).Value = "Status"\par
+        .Cells(1, IIf(sheetType = "CT_SDF", 29, 28)).Value = "Duplicate Test ID's in TestPlan"\par
+        \par
+        .Cells(2, 1).Value = "Testplan Total Tests"\par
+        .Cells(3, 1).Value = testplanTotal\par
+        .Cells(4, 1).Value = "Regression Total Tests"\par
+        .Cells(5, 1).Value = regressionTotal\par
+        .Cells(6, 1).Value = "Testplan vs. Regression coverage"\par
+        \par
+        missingInTP = .Cells(.Rows.Count, IIf(sheetType = "CT_SDF", 20, 19)).End(xlUp).row - 1\par
+        If missingInTP > 0 Then\par
+            .Cells(13, 1).Value = missingInTP\par
+        Else\par
+            .Cells(13, 1).Value = 0\par
+        End If\par
+        \par
+        If testplanTotal > 0 Then\par
+            coverage = ((testplanTotal - tpTestsNotInRegression) / testplanTotal) * 100\par
+        Else\par
+            coverage = 0\par
+        End If\par
+        .Cells(7, 1).Value = Format(coverage, "0.00") & "%"\par
+        \par
+        .Cells(8, 1).Value = "Regression vs. Testplan coverage"\par
+        If regressionTotal > 0 Then\par
+            coverage = ((regressionTotal - missingInTP) / regressionTotal) * 100\par
+        Else\par
+            coverage = 0\par
+        End If\par
+        .Cells(9, 1).Value = Format(coverage, "0.00") & "%"\par
+        \par
+        .Cells(10, 1).Value = "TP tests not in regression:"\par
+        .Cells(11, 1).Value = tpTestsNotInRegression\par
+        .Cells(12, 1).Value = "Regression tests not in TP"\par
+            .Cells(14, 1).Value = "Duplicate tests in regression"\par
+            duplicateTests = .Cells(.Rows.Count, 24).End(xlUp).row - 1\par
+            .Cells(15, 1).Value = duplicateTests\par
+        \par
+        ' Format columns\par
+        .Columns("A:B").ColumnWidth = 25\par
+        .Columns("C:J").ColumnWidth = 10\par
+        .Columns(IIf(sheetType = "CT_SDF", "K:L", "K")).ColumnWidth = 20\par
+        .Columns(IIf(sheetType = "CT_SDF", "M", "L")).ColumnWidth = 30\par
+        \par
+        ' Add borders\par
+        lastRowA = .Cells(.Rows.Count, "C").End(xlUp).row\par
+        .Range("A1:AB" & lastRowA).Borders.LineStyle = xlContinuous\par
+    End With\par
+\par
+CleanupAndExit:\par
+    Application.ScreenUpdating = True\par
+    Application.Calculation = xlCalculationAutomatic\par
+    MsgBox "Coverage analysis and update completed successfully!", vbInformation\par
+    Exit Sub\par
+\par
+ErrorHandler:\par
+    Application.ScreenUpdating = True\par
+    Application.Calculation = xlCalculationAutomatic\par
+    If Not wbRegression Is Nothing Then wbRegression.Close False\par
+    MsgBox "An error occurred: " & Err.Description, vbCritical\par
+End Sub\par
+Public Function GetSheetsEndingWith(suffix As String) As Variant\par
+    Dim ws As Worksheet\par
+    Dim matchingSheets As Collection\par
+    Set matchingSheets = New Collection\par
+    For Each ws In ThisWorkbook.Worksheets\par
+        If Right(ws.Name, Len(suffix)) = suffix Then\par
+            matchingSheets.Add ws.Name\par
+        End If\par
+    Next ws\par
+    Dim result() As String\par
+    Dim i As Long\par
+    ReDim result(1 To matchingSheets.Count)\par
+    For i = 1 To matchingSheets.Count\par
+        result(i) = matchingSheets(i)\par
+    Next i\par
+    GetSheetsEndingWith = result\par
+End Function\par
+}
+ 

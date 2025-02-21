@@ -1,0 +1,484 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sl240\slmult1\f0\fs16\lang9 Public Sub CHIPTOP_SHMEM_STATUS()\par
+    ' Constants\par
+    Const SHEET_CHIP_TOP_UPF As String = "TP_COVERAGE_UPF"\par
+    Const SHEET_CHIP_TOP_PG0_DELAY As String = "TP_COVERAGE_PG0_DELAY"\par
+    Const SHEET_SHMEM_UPF As String = "TP_COVERAGE_SHMEM_UPF"\par
+    Const SHEET_SHMEM_PG0_DELAY As String = "TP_COVERAGE_SHMEM_PG0_DELAY"\par
+    ' Global Excluded and Included Sheets (defined once)\par
+    Dim excludedSheets As Variant\par
+    Dim includedSheets As Variant\par
+    ' Define excluded and included sheets once\par
+    excludedSheets = Array("TP_COVERAGE_UPF", "TP_COVERAGE_SHMEM_SDF", "TP_COVERAGE_CT_SDF", "TP_COVERAGE_CT_TYP_MAX", "TP_COVERAGE_CT_TYP_MIN", _\par
+        "TP_COVERAGE_SHMEM_TYP_MAX", "TP_COVERAGE_SHMEM_TYP_MIN", "TP_COVERAGE_CT_TYP_MAX_MAX", _\par
+        "TP_COVERAGE_CT_TYP_MIN_MIN", "TP_COVERAGE_SHMEM_TYP_MAX_MAX", "TP_COVERAGE_SHMEM_TYP_MIN_MIN", _\par
+        "TP_COVERAGE_PG0_DELAY", "TP_COVERAGE_SH_MEM_UPF", "TP_COVERAGE_SH_MEM_PG0_DELAY", _\par
+        "TP_COVERAGE_SHMEM_SDF_TYP_MIN", "TP_COVERAGE_SHMEM_SDF_TYP_MAX", "TP_COVERAGE_CT_SDF_TYP_MIN", _\par
+        "TP_COVERAGE_CT_SDF_TYP_MAX", "TP_COVERAGE_GLS_SDF", "GLS_SDF_SANITY_HP", "CHIP_TOP", "MBIST", _\par
+        "PINMUX", "apb_i2c", "OSPI_SS", "JPEG_SS", "MRAM_SS", "ZAPHOD_SS", "ISP_SS", "SHARED_MEM_SS", _\par
+        "MRAM_RC_SS", "CVM_OCVM_SS", "CPI_ISP_SS", "MRAM_SS_OLD", "OSPI_SS_plan", "JPEG_SS_OLD")\par
+      includedSheets = GetSheetsEndingWith("_SS")\par
+    ' Variables\par
+    Dim userChoice As String\par
+    Dim ws As Worksheet\par
+    Dim flag As Integer\par
+    Dim i As Long, j As Long\par
+    Dim lastRowSheet As Long\par
+    Dim testplanTotal As Long\par
+    Dim regressionTotal As Long\par
+    Dim tpTestsNotInRegression As Long\par
+    Dim sheetName As String\par
+    Dim makeChanges As Boolean\par
+    Dim startColumn As Integer\par
+    Dim lastHeaderColumn As Integer\par
+    Dim notFoundColumn As Integer\par
+    Dim checkColumn As Integer\par
+    Dim missingInTP As Integer\par
+    Dim CSV_FILE_PATH As String\par
+    Dim counter As Integer\par
+    Dim lastRowN As Integer\par
+    Dim lastRowM As Integer\par
+    Dim regressionMissingTests As Integer\par
+    ' User input for macro type\par
+    userChoice = InputBox("Enter the macro to execute:" & vbCrLf & _\par
+                         "1. CHIP_TOP_UPF" & vbCrLf & _\par
+                         "2. CHIP_TOP_PG0_DELAY" & vbCrLf & _\par
+                         "3. SHMEM_UPF" & vbCrLf & _\par
+                         "4. SHMEM_PG0_DELAY", "Choose Macro")\par
+    ' Set sheets and parameters based on selection\par
+    Select Case userChoice\par
+        Case "1" ' CHIP_TOP UPF\par
+            sheetName = SHEET_CHIP_TOP_UPF\par
+            makeChanges = True\par
+            CSV_FILE_PATH = "C:\\Users\\PP001028925\\Documents\\Regression.csv"\par
+            lastHeaderColumn = 27\par
+            notFoundColumn = 9\par
+            checkColumn = 3\par
+            regressionMissingTests = 15\par
+            duplicateTestinRegression = 20\par
+            duplicateTestinTp = 24\par
+        Case "2" ' CHIP_TOP PG0 DELAY\par
+            sheetName = SHEET_CHIP_TOP_PG0_DELAY\par
+            makeChanges = False\par
+            CSV_FILE_PATH = "C:\\Users\\PP001028925\\Documents\\Regression_PG0.csv"\par
+            lastHeaderColumn = 26\par
+            notFoundColumn = 8\par
+            checkColumn = 3\par
+            regressionMissingTests = 14\par
+            duplicateTestinRegression = 19\par
+            duplicateTestinTp = 23\par
+        Case "3" ' SHMEM UPF\par
+            sheetName = SHEET_SHMEM_UPF\par
+            makeChanges = True\par
+            CSV_FILE_PATH = "C:\\Users\\PP001028925\\Documents\\Regression_SH_MEM.csv"\par
+            lastHeaderColumn = 26\par
+            notFoundColumn = 8\par
+            checkColumn = 3\par
+            regressionMissingTests = 14\par
+            duplicateTestinRegression = 19\par
+            duplicateTestinTp = 23\par
+        Case "4" ' SHMEM PG0 DELAY\par
+            sheetName = SHEET_SHMEM_PG0_DELAY\par
+            makeChanges = False\par
+            CSV_FILE_PATH = "C:\\Users\\PP001028925\\Documents\\Regression_SH_MEM_PG0.csv"\par
+            lastHeaderColumn = 25\par
+            notFoundColumn = 7\par
+            checkColumn = 3\par
+            regressionMissingTests = 13\par
+            duplicateTestinRegression = 18\par
+            duplicateTestinTp = 22\par
+        Case Else\par
+            MsgBox "Invalid choice! Please enter a number between 1 and 12.", vbExclamation\par
+            Exit Sub\par
+    End Select\par
+    ' Get worksheet\par
+    On Error Resume Next\par
+    Set ws = Worksheets(sheetName)\par
+    On Error GoTo 0\par
+    If ws Is Nothing Then\par
+        MsgBox "Worksheet '" & sheetName & "' not found!", vbCritical\par
+        Exit Sub\par
+    End If\par
+    ' Calculate totals\par
+    lastRowSheet = ws.Cells(ws.Rows.Count, Choose(val(userChoice), 8, 7, 7, 6)).End(xlUp).row\par
+    testplanTotal = lastRowSheet - 1 ' Subtract header row\par
+    ' Open CSV to get regression total\par
+    Dim csvWorkbook As Workbook\par
+    On Error Resume Next\par
+    Set csvWorkbook = Workbooks.Open(CSV_FILE_PATH)\par
+    On Error GoTo 0\par
+    If csvWorkbook Is Nothing Then\par
+        MsgBox "Failed to open the CSV file!", vbCritical\par
+        Exit Sub\par
+    End If\par
+    ' Get total rows from CSV (minus header row)\par
+    regressionTotal = csvWorkbook.Sheets(1).Cells(csvWorkbook.Sheets(1).Rows.Count, "A").End(xlUp).row - 1\par
+    csvWorkbook.Close SaveChanges:=False\par
+    ' Process rows\par
+    tpTestsNotInRegression = 0\par
+    For i = 2 To lastRowSheet\par
+        ' Skip if already marked as "Test ID not found"\par
+        If Trim(ws.Cells(i, checkColumn).Value) = "" Then\par
+            ws.Cells(i, notFoundColumn).Value = "Test ID not found"\par
+            tpTestsNotInRegression = tpTestsNotInRegression + 1\par
+            GoTo nextRow\par
+        End If\par
+        ' Process based on user choice\par
+        Select Case userChoice\par
+            Case "1"\par
+                flag = UPF_STATUS(ws, i, excludedSheets, makeChanges)\par
+            Case "2"\par
+                flag = PG0_DELAY_STATUS(ws, i, excludedSheets)\par
+            Case "3"\par
+                flag = SHMEM_UPF(ws, i, includedSheets, makeChanges)\par
+            Case "4"\par
+                flag = SHMEM_PG0_DELAY(ws, i, includedSheets)\par
+        End Select\par
+        If flag = 0 Then\par
+            ws.Cells(i, notFoundColumn).Value = "Test ID not found"\par
+            tpTestsNotInRegression = tpTestsNotInRegression + 1\par
+        End If\par
+nextRow:\par
+    Next i\par
+    ' Process CSV data\par
+    Set csvWorkbook = Workbooks.Open(CSV_FILE_PATH)\par
+    With csvWorkbook.Worksheets(1)\par
+        Dim lastRowCSV As Long\par
+        lastRowCSV = .Cells(.Rows.Count, 7).End(xlUp).row\par
+        ws.Range(ws.Cells(1, 2), ws.Cells(1, startColumn + 1)).ClearContents\par
+        .Range("G1").Copy\par
+        ws.Cells(1, 2).PasteSpecial Paste:=xlPasteValues\par
+        If lastRowCSV > 1 Then\par
+            .Range("G2:G" & lastRowCSV).Copy\par
+            ws.Cells(2, 2).PasteSpecial Paste:=xlPasteValues\par
+        End If\par
+    End With\par
+    \par
+    Set wbRegression = Workbooks.Open(CSV_FILE_PATH)\par
+    Set testIDDict = CreateObject("Scripting.Dictionary")\par
+    With wbRegression.Sheets(1)\par
+        lastRowCSV = .Cells(.Rows.Count, "E").End(xlUp).row\par
+        regressionTotal = lastRowCSV - 1\par
+        ' Count occurrences of each test ID\par
+        For i = 2 To lastRowCSV\par
+            testID = Trim(.Cells(i, "E").Value)\par
+            If testID <> "" Then\par
+                If testIDDict.exists(testID) Then\par
+                    testIDDict(testID) = testIDDict(testID) + 1\par
+                Else\par
+                    testIDDict.Add testID, 1\par
+                End If\par
+            End If\par
+        Next i\par
+        ' Output only the duplicate test IDs\par
+        OutputRow = 2\par
+        With ws\par
+            For Each key In testIDDict.keys\par
+                If testIDDict(key) > 1 Then\par
+                    .Cells(OutputRow, duplicateTestinRegression).Value = key\par
+                    OutputRow = OutputRow + 1\par
+                End If\par
+            Next key\par
+        End With\par
+        \par
+    With ws\par
+        .Cells(1, 1).Value = Choose(val(userChoice), _\par
+            "CHIP_TOP Coverage", "CHIP_TOP PG0 Coverage", "SH_MEM Coverage", "SH_MEM PG0 Coverage") & _\par
+            " (" & Format(Date, "DD-MMM-YYYY") & ")"\par
+    End With\par
+    ' Process regression data\par
+    Dim LastRowTestPlan As Long, LastRowRegression As Long\par
+    Dim TestPlanIDs As Range, RegressionIDs As Range\par
+  \par
+    Dim RegressionID As Range\par
+    LastRowTestPlan = ws.Cells(ws.Rows.Count, Choose(val(userChoice), "H", "G", "G", "F")).End(xlUp).row\par
+    LastRowRegression = csvWorkbook.Sheets(1).Cells(csvWorkbook.Sheets(1).Rows.Count, "E").End(xlUp).row\par
+    Set TestPlanIDs = ws.Range(ws.Cells(2, Choose(val(userChoice), 8, 7, 7, 6)), ws.Cells(LastRowTestPlan, Choose(val(userChoice), 8, 7, 7, 6)))\par
+    Set RegressionIDs = csvWorkbook.Sheets(1).Range("E2:E" & LastRowRegression)\par
+    OutputRow = 2\par
+    For Each RegressionID In RegressionIDs\par
+        If IsError(Application.Match(RegressionID.Value, TestPlanIDs, 0)) Then\par
+            ws.Cells(OutputRow, regressionMissingTests).Value = RegressionID.Value\par
+            OutputRow = OutputRow + 1\par
+        End If\par
+    Next RegressionID\par
+    \par
+       ' Initialize Worksheet\par
+    Set colMDict = CreateObject("Scripting.Dictionary")\par
+    With ws\par
+        lastRowM = .Cells(.Rows.Count, notFoundColumn - 1).End(xlUp).row\par
+        For i = 2 To lastRowM\par
+            testIDM = Trim(.Cells(i, notFoundColumn - 1).Value)\par
+            If testIDM <> "" Then\par
+                If colMDict.exists(testIDM) Then\par
+                    colMDict(testIDM) = colMDict(testIDM) + 1\par
+                Else\par
+                    colMDict.Add testIDM, 1\par
+                End If\par
+            End If\par
+        Next i\par
+        OutputRowY = 2\par
+        For Each key In colMDict.keys\par
+            If colMDict(key) > 1 Then\par
+                .Cells(OutputRowY, duplicateTestinTp).Value = key\par
+                OutputRowY = OutputRowY + 1\par
+            End If\par
+        Next key\par
+    End With\par
+    End With\par
+    \par
+      lastRow = ws.Cells(ws.Rows.Count, notFoundColumn - 1).End(xlUp).row\par
+    ' Create dictionary to store Column L values and their row numbers\par
+    Dim dict As Object\par
+    Set dict = CreateObject("Scripting.Dictionary")\par
+    ' Store Column L values in dictionary\par
+    For i = 2 To lastRow  ' Assuming row 1 is header\par
+        Dim keyValue As String\par
+        keyValue = Trim(ws.Cells(i, notFoundColumn - 1).Value)\par
+        If keyValue <> "" Then\par
+            If Not dict.exists(keyValue) Then\par
+                dict.Add keyValue, i\par
+            End If\par
+        End If\par
+    Next i\par
+    ' Find last row with data in column X\par
+    Dim lastRowX As Long\par
+    lastRowX = ws.Cells(ws.Rows.Count, duplicateTestinRegression).End(xlUp).row\par
+    ' Compare and copy data\par
+    For i = 2 To lastRowX  ' Assuming row 1 is header\par
+        Dim compareValue As String\par
+        compareValue = Trim(ws.Cells(i, duplicateTestinRegression).Value)\par
+        ' If value exists in dictionary (was found in Column L)\par
+        If compareValue <> "" And dict.exists(compareValue) Then\par
+            ' Get the row number from dictionary\par
+            Dim matchRow As Long\par
+            matchRow = dict(compareValue)\par
+            ' Copy corresponding data from Column N to Column Y\par
+            ws.Cells(i, duplicateTestinRegression + 1).Value = ws.Cells(matchRow, notFoundColumn + 1).Value\par
+        End If\par
+    Next i\par
+    \par
+    With ws\par
+        .Columns("A:B").ColumnWidth = 35\par
+        .Columns("C:D").ColumnWidth = 11\par
+        .Columns("F:H").ColumnWidth = 30\par
+        .Columns(duplicateTestinRegression).ColumnWidth = 30\par
+        .Columns(duplicateTestinTp).ColumnWidth = 30\par
+        .Cells(1, 1).Value = Choose(val(userChoice), _\par
+            "CHIP_TOP Coverage", "CHIP_TOP PG0 Coverage", "SH_MEM Coverage", "SH_MEM PG0 Coverage") & _\par
+            " (" & Format(Date, "DD-MMM-YYYY") & ")"\par
+        .Cells(1, 2).Value = "Regression Sheets"\par
+        .Cells(1, notFoundColumn).Value = "TP tests missing from regression"\par
+        .Cells(1, notFoundColumn + 2).Value = "Comment"\par
+        .Cells(1, notFoundColumn + 3).Value = "Status"\par
+        .Cells(1, regressionMissingTests - 1).Value = "Sr.No"\par
+        .Cells(1, regressionMissingTests).Value = "Regression tests missing in TP"\par
+        .Cells(1, regressionMissingTests + 1).Value = "Owner"\par
+        .Cells(1, regressionMissingTests + 2).Value = "Comment"\par
+        .Cells(1, regressionMissingTests + 3).Value = "Status"\par
+        .Cells(1, regressionMissingTests + 5).Value = "Duplicate Test ID's in regression"\par
+        .Cells(1, regressionMissingTests + 6).Value = "Owner"\par
+        .Cells(1, regressionMissingTests + 7).Value = "Comment"\par
+        .Cells(1, regressionMissingTests + 8).Value = "Status"\par
+        .Cells(1, regressionMissingTests + 9).Value = "Duplicate Test ID's in Testplan"\par
+        .Cells(1, regressionMissingTests + 10).Value = "Owner"\par
+        .Cells(1, regressionMissingTests + 11).Value = "Comment"\par
+        .Cells(1, regressionMissingTests + 12).Value = "Status"\par
+        missingInTP = .Cells(.Rows.Count, regressionMissingTests).End(xlUp).row - 1\par
+        If missingInTP > 0 Then\par
+            .Cells(13, 1).Value = missingInTP\par
+        Else\par
+            .Cells(13, 1).Value = 0\par
+        End If\par
+        lastRowN = ws.Cells(ws.Rows.Count, regressionMissingTests).End(xlUp).row\par
+        counter = 1\par
+        For i = 2 To lastRowN\par
+            If Not IsEmpty(ws.Cells(i, regressionMissingTests).Value) Then\par
+                ws.Cells(i, regressionMissingTests - 1).Value = counter\par
+                counter = counter + 1\par
+            End If\par
+        Next\par
+        With ws\par
+        .Cells(2, 1).Value = "Testplan Total Tests"\par
+        .Cells(3, 1).Value = testplanTotal\par
+        .Cells(4, 1).Value = "Regression Total Tests"\par
+        .Cells(5, 1).Value = regressionTotal\par
+        .Cells(6, 1).Value = "Testplan vs. Regression coverage"\par
+        If testplanTotal > 0 Then\par
+            coverage = ((testplanTotal - tpTestsNotInRegression) / testplanTotal) * 100\par
+        Else\par
+            coverage = 0\par
+        End If\par
+        .Cells(7, 1).Value = Format(coverage, "0.00") & "%"\par
+        .Cells(8, 1).Value = "Regression vs. Testplan coverage"\par
+        If regressionTotal > 0 Then\par
+            coverage = ((regressionTotal - missingInTP) / regressionTotal) * 100\par
+        Else\par
+            coverage = 0\par
+        End If\par
+        .Cells(9, 1).Value = Format(coverage, "0.00") & "%"\par
+        .Cells(10, 1).Value = "TP tests not in regression:"\par
+        .Cells(11, 1).Value = tpTestsNotInRegression\par
+        .Cells(12, 1).Value = "Regression tests not in TP"\par
+        .Cells(14, 1).Value = "Duplicate tests in regression"\par
+        duplicateTests = .Cells(.Rows.Count, duplicateTestinRegression).End(xlUp).row - 1\par
+        .Cells(15, 1).Value = duplicateTests\par
+    End With\par
+    \par
+        ' Header Formatting\par
+        With .Range(.Cells(1, 1), .Cells(1, lastHeaderColumn))\par
+            .HorizontalAlignment = xlCenter\par
+            .VerticalAlignment = xlCenter\par
+            .WrapText = True\par
+            .Font.Bold = True\par
+            .Interior.Color = RGB(200, 200, 200) ' Darker grey background\par
+        End With\par
+        .Cells.Borders.LineStyle = xlNone\par
+        ' Find the last row with data\par
+        lastRow = .Cells(.Rows.Count, Choose(val(userChoice), 4, 4, 3, 3)).End(xlUp).row\par
+        ' Find the last column with data\par
+        lastCol = .Cells(1, .Columns.Count).End(xlToLeft).Column\par
+        ' Apply borders only to the range with data\par
+        With .Range(.Cells(1, 1), .Cells(lastRow, lastCol)).Borders\par
+            .LineStyle = xlContinuous\par
+            .Color = vbBlack\par
+            .Weight = xlThin\par
+        End With\par
+        lastRow = .Cells(.Rows.Count, "C").End(xlUp).row\par
+        lastCol = .Cells(1, .Columns.Count).End(xlToLeft).Column\par
+        \par
+        ' Unwrap all cells from row 2 to last row\par
+        Set rng = .Range(.Cells(2, 1), .Cells(lastRow, lastCol))\par
+        rng.WrapText = False\par
+    \par
+    End With\par
+    csvWorkbook.Close SaveChanges:=False\par
+    ' Show completion message\par
+    MsgBox "Process completed successfully for " & sheetName, vbInformation\par
+End Sub\par
+Private Function UPF_STATUS(ws As Worksheet, currentRow As Long, excludedSheets As Variant, makeChanges As Boolean) As Integer\par
+    Dim targetSheet As Worksheet\par
+    Dim lastRowWs As Long\par
+    Dim j As Long\par
+    For Each targetSheet In Worksheets\par
+        If Not IsInExcludedSheet(targetSheet.Name, excludedSheets) Then\par
+            lastRowWs = targetSheet.Cells(targetSheet.Rows.Count, 4).End(xlUp).row\par
+            For j = 6 To lastRowWs\par
+                If targetSheet.Cells(j, 4).Value = ws.Cells(currentRow, 8).Value Then\par
+                    If makeChanges Then\par
+                        targetSheet.Cells(j, 6).Value = targetSheet.Cells(j, 5).Value\par
+                    End If\par
+                    targetSheet.Cells(j, 5).Value = ws.Cells(currentRow, 3).Value\par
+                    targetSheet.Cells(j, 8).Value = ws.Cells(currentRow, 5).Value\par
+                    UPF_STATUS = 1\par
+                    Exit Function\par
+                End If\par
+            Next j\par
+        End If\par
+    Next targetSheet\par
+    UPF_STATUS = 0\par
+End Function\par
+Private Function PG0_DELAY_STATUS(ws As Worksheet, currentRow As Long, excludedSheets As Variant) As Integer\par
+    Dim targetSheet As Worksheet\par
+    Dim lastRowWs As Long\par
+    Dim j As Long\par
+    For Each targetSheet In Worksheets\par
+        If Not IsInExcludedSheet(targetSheet.Name, excludedSheets) Then\par
+            lastRowWs = targetSheet.Cells(targetSheet.Rows.Count, 4).End(xlUp).row\par
+            For j = 6 To lastRowWs\par
+                If targetSheet.Cells(j, 4).Value = ws.Cells(currentRow, 7).Value Then\par
+                    targetSheet.Cells(j, 7).Value = ws.Cells(currentRow, 3).Value\par
+                    PG0_DELAY_STATUS = 1\par
+                    Exit Function\par
+                End If\par
+            Next j\par
+        End If\par
+    Next targetSheet\par
+    PG0_DELAY_STATUS = 0\par
+End Function\par
+Private Function SHMEM_UPF(ws As Worksheet, currentRow As Long, includedSheets As Variant, makeChanges As Boolean) As Integer\par
+        Dim targetSheet As Worksheet\par
+    Dim lastRowWs As Long\par
+    Dim j As Long\par
+    For Each targetSheet In Worksheets\par
+        ' Use IsSheetIncluded function to check sheet\par
+        If IsSheetIncluded(targetSheet.Name, includedSheets) Then\par
+            ' Process the included sheet\par
+            lastRowWs = targetSheet.Cells(targetSheet.Rows.Count, 4).End(xlUp).row\par
+            For j = 6 To lastRowWs\par
+                If targetSheet.Cells(j, 3).Value = ws.Cells(currentRow, 7).Value Then\par
+                    ' Always update, even if current cell is empty\par
+                    If makeChanges Then\par
+                            targetSheet.Cells(j, 5).Value = targetSheet.Cells(j, 4).Value\par
+                    End If\par
+                    targetSheet.Cells(j, 4).Value = ws.Cells(currentRow, 3).Value\par
+                    targetSheet.Cells(j, 7).Value = ws.Cells(currentRow, 5).Value\par
+                    SHMEM_UPF = 1\par
+                    Exit Function\par
+                End If\par
+            Next j\par
+        End If\par
+    Next targetSheet\par
+    SHMEM_UPF = 0\par
+End Function\par
+Private Function SHMEM_PG0_DELAY(ws As Worksheet, currentRow As Long, includedSheets As Variant) As Integer\par
+    Dim targetSheet As Worksheet\par
+    Dim lastRowWs As Long\par
+    Dim j As Long\par
+    For Each targetSheet In Worksheets\par
+        ' Use IsSheetIncluded function to check sheet\par
+        If IsSheetIncluded(targetSheet.Name, includedSheets) Then\par
+            ' Process the included sheet\par
+            lastRowWs = targetSheet.Cells(targetSheet.Rows.Count, 4).End(xlUp).row\par
+            For j = 6 To lastRowWs\par
+                ' Compare Test ID\par
+                If targetSheet.Cells(j, 3).Value = ws.Cells(currentRow, 6).Value Then\par
+                    targetSheet.Cells(j, 6).Value = ws.Cells(currentRow, 3).Value\par
+                    SHMEM_PG0_DELAY = 1\par
+                    Exit Function\par
+                End If\par
+            Next j\par
+        End If\par
+    Next targetSheet\par
+    SHMEM_PG0_DELAY = 0\par
+End Function\par
+Private Function IsInExcludedSheet(sheetName As String, excludedSheets As Variant) As Boolean\par
+    Dim i As Integer\par
+    For i = LBound(excludedSheets) To UBound(excludedSheets)\par
+        If sheetName = excludedSheets(i) Then\par
+            IsInExcludedSheet = True\par
+            Exit Function\par
+        End If\par
+    Next i\par
+    IsInExcludedSheet = False\par
+End Function\par
+Private Function IsSheetIncluded(sheetName As String, includedSheets As Variant) As Boolean\par
+   Dim k As Long\par
+    For k = LBound(includedSheets) To UBound(includedSheets)\par
+        If sheetName = includedSheets(k) Then\par
+            IsSheetIncluded = True\par
+            Exit Function\par
+        End If\par
+    Next k\par
+    IsSheetIncluded = False\par
+End Function\par
+Public Function GetSheetsEndingWith(suffix As String) As Variant\par
+    Dim ws As Worksheet\par
+    Dim matchingSheets As Collection\par
+    Set matchingSheets = New Collection\par
+    For Each ws In ThisWorkbook.Worksheets\par
+        If Right(ws.Name, Len(suffix)) = suffix Then\par
+            matchingSheets.Add ws.Name\par
+        End If\par
+    Next ws\par
+    Dim result() As String\par
+    Dim i As Long\par
+    ReDim result(1 To matchingSheets.Count)\par
+    For i = 1 To matchingSheets.Count\par
+        result(i) = matchingSheets(i)\par
+    Next i\par
+    GetSheetsEndingWith = result\par
+End Function\par
+}
+ 
