@@ -1,0 +1,1141 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\f0\fs22\lang9 //-----------------------------------------------------------------------------\par
+// FILENAME   : eagle_zaphod_base_test.sv\par
+// DESCRIPTION:\par
+//-----------------------------------------------------------------------------\par
+`ifndef ZAPHOD_BASE_TEST_SV\par
+`define ZAPHOD_BASE_TEST_SV\par
+\par
+class eagle_zaphod_base_seq extends virtual_seq_lib; \par
+   \par
+  `uvm_object_utils(eagle_zaphod_base_seq) \par
+ \par
+  ////////////////////////////////////////////////////////////////////////////////////\par
+  // [1]: \par
+  ////////////////////////////////////////////////////////////////////////////////////\par
+  eagle_zaphod_cfg_constraint   zaphod_cfg;\par
+  \par
+  bit [31:0]   ref_mem [bit [31:0]];\par
+  bit[31:0]    read_data;\par
+  bit[15:0]     qconfig, regioncfg;\par
+  bit          intr_handled;\par
+  localparam   MAX_LINE_LENGTH = 256;\par
+  \par
+  string       mem_name;\par
+  string       zaphod_test_path = "";\par
+  string       ip_hex_file      = "";\par
+  string       ip_kws_file      = "";\par
+  string       ref_op_hex_file  = "";\par
+  bit[31:0]    scratch_buffer_base_addr;\par
+  bit[31:0]    cmd_stream_base_addr;\par
+  bit[31:0]    weight_base_addr;\par
+  bit[31:0]    input_data_stream_base_addr;\par
+  bit[31:0]    output_data_stream_base_addr;\par
+  \par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  function new (string name = "eagle_zaphod_base_seq"); \par
+    super.new(name); \par
+    if (!uvm_config_db#(eagle_zaphod_cfg_constraint)::get(null, "eagle_zaphod_base_seq", "eagle_zaphod_cfg_constraint", zaphod_cfg))\par
+      `uvm_fatal (get_name, "Did not get a zaphod_cfg from eagle_zaphod_base_test")\par
+\par
+    if (!uvm_config_db #(tb_env)::get(null, "eagle_zaphod_base_seq", "tb_env", env))\par
+      `uvm_fatal (get_name, "Did not get a tb_env from base_test")\par
+      \par
+  endfunction : new \par
+\par
+  ////////////////////////////////////////////////////////////////////////////////////\par
+  //--------------------------------------------------------------------------\par
+  // Method      : pre_body\par
+  // Description : \par
+  //-------------------------------------------------------------------------- \par
+  virtual task pre_body();\par
+    super.pre_body();\par
+  endtask : pre_body\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual task body();\par
+    super.body();\par
+    WAIT_RESET;\par
+    DELAY(1000);\par
+    `uvm_info(get_full_name()," ********* This is eagle_zaphod_base_seq running ******** ",UVM_LOW);\par
+     mem_perf_ranges();\par
+  endtask: body\par
+  ////////////////////////////////////////////////////////////////////////////////////\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  task write_nor_flash_model(bit [31:0] addr, bit [3:0] strb, bit [31:0] data);\par
+    bit ospi_lb, ospi_ub;\par
+\par
+    addr = addr + 3;\par
+    `ifdef SNPS_BUG_REPORT_SSI_CTRL\par
+      addr = addr & 25'h1ff_ffff;\par
+      `uvm_info("zaphod flash memory OSPI BKDR WR", $sformatf("addr = %x | data = %x",addr, data), UVM_LOW)\par
+      // Below define is required to guard for non-ospi tests\par
+      `ifdef FLASH_OSPI0\par
+        for(int i = 0; i < 4; i++) begin\par
+          tb_top.u_ospi0_flash_lb_if.ARRAY[addr - i] = data[i*8 +: 8];\par
+        end\par
+      `endif\par
+    `else\par
+      for(int i = 0; i < 4; i++) begin\par
+        if (strb[i] == 0)\par
+\tab   continue;\par
+        // Lower 64MB/256MB addr space, ss_n[0]\par
+        if ( (addr >= 32'h2000_0000 && addr < 32'h2400_0000) ||\par
+             (addr >= 32'h2800_0000 && addr < 32'h2C00_0000) ||\par
+             (addr >= 32'hA000_0000 && addr < 32'hB000_0000) || \par
+             (addr >= 32'hC000_0000 && addr < 32'hD000_0000)\par
+           )\par
+        begin\par
+          ospi_lb = 1'b1;\par
+          `uvm_info("Zaphod BKDR WR", $sformatf("OSPI address from Lower 64MB/256MB region = %x",addr), UVM_LOW)\par
+        end\par
+        // Upper 64MB/256MB addr space, ss_n[1]\par
+        else if ( (addr >= 32'h2400_0000 && addr < 32'h2800_0000) ||\par
+                  (addr >= 32'h2C00_0000 && addr < 32'h3000_0000) ||\par
+                  (addr >= 32'hB000_0000 && addr < 32'hC000_0000) || \par
+                  (addr >= 32'hD000_0000 && addr < 32'hE000_0000)\par
+                )\par
+        begin  \par
+          ospi_ub = 1'b1;\par
+          `uvm_info("Zaphod BKDR WR", $sformatf("OSPI address from Upper 64MB/256MB region = %x",addr), UVM_LOW)\par
+        end\par
+\par
+        // Lower 64MB/256MB addr space, ss_n[0]\par
+        if (ospi_lb == 1'b1) begin\par
+          // Below define is required to guard for non-ospi tests\par
+          `ifdef FLASH_OSPI0\par
+            tb_top.u_ospi0_flash_lb_if.ARRAY[addr & 25'h1ff_ffff] = data[i*8 +: 8];\par
+            `uvm_info("zaphod flash memory OSPI0 BKDR WR: Lower 64MB/256MB addr", $sformatf("addr = 25'h%x | data = 8'h%x",addr & 25'h1ff_ffff, tb_top.u_ospi0_flash_lb_if.ARRAY[addr & 25'h1ff_ffff]), UVM_LOW)\par
+          `endif\par
+        end\par
+        // Upper 64MB/256MB addr space, ss_n[1]\par
+        else if (ospi_ub == 1'b1) begin\par
+          // Below define is required to guard for non-ospi tests\par
+          `ifdef FLASH_OSPI0\par
+            tb_top.u_ospi0_flash_ub_if.ARRAY[addr & 25'h1ff_ffff] = data[i*8 +: 8];\par
+            `uvm_info("zaphod flash memory OSPI0 BKDR WR: Upper 64MB/256MB addr", $sformatf("addr = 25'h%x | data = 8'h%x",addr & 25'h1ff_ffff, tb_top.u_ospi0_flash_ub_if.ARRAY[addr & 25'h1ff_ffff]), UVM_LOW)\par
+          `endif\par
+        end\par
+        addr -= 1;\par
+      end\par
+    `endif\par
+  endtask : write_nor_flash_model\par
+  \par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  task write_hyper_ram_model(bit [31:0] addr, bit [31:0] data);\par
+    bit ospi_lb, ospi_ub;\par
+\par
+    addr = addr + 3;\par
+\par
+    // TODO: Create function for below logic and call at required places\par
+    // Lower 64MB/256MB addr space, ss_n[0]\par
+    if ( (addr >= 32'h2000_0000 && addr < 32'h2400_0000) ||\par
+         (addr >= 32'h2800_0000 && addr < 32'h2C00_0000) ||\par
+         (addr >= 32'hA000_0000 && addr < 32'hB000_0000) || \par
+         (addr >= 32'hC000_0000 && addr < 32'hD000_0000)\par
+       )\par
+    begin\par
+      ospi_lb = 1'b1;\par
+    end\par
+    // Upper 64MB/256MB addr space, ss_n[1]\par
+    else if ( (addr >= 32'h2400_0000 && addr < 32'h2800_0000) ||\par
+              (addr >= 32'h2C00_0000 && addr < 32'h3000_0000) ||\par
+              (addr >= 32'hB000_0000 && addr < 32'hC000_0000) || \par
+              (addr >= 32'hD000_0000 && addr < 32'hE000_0000)\par
+            )\par
+    begin  \par
+      ospi_ub = 1'b1;\par
+    end\par
+\par
+    `ifdef HYPER_RAM_OSPI0 \par
+      // TODO: Open jira to understand need for below line and rootcause issue around it (if any)\par
+      data[31:0] = \{data[15:0], data[31:16]\}; \par
+      for(int i = 0; i < 4; i++)\par
+    `elsif HYPER_RAM_OSPI1\par
+      // TODO: Open jira to understand need for below line and rootcause issue around it (if any)\par
+      data[31:0] = \{data[15:0], data[31:16]\}; \par
+      for(int i = 0; i < 4; i++)\par
+    `elsif HYPER_RAM_X16_HSPI0\par
+      for(int i = 0; i <2; i++)\par
+    `elsif HYPER_RAM_X16_HSPI1\par
+      for(int i = 0; i <2; i++)\par
+    `endif\par
+    begin\par
+      // Lower 64MB/256MB addr space, ss_n[0]\par
+      if (ospi_lb == 1'b1) begin\par
+        if (mem_name == "OSPI0_HYPER_RAM") begin\par
+          `ifdef HYPER_RAM_OSPI0 \par
+\tab     tb_top.u_ospi0_hyper_x8_lb_if.ifull.Preload(addr, ( (data >> (i * 8)) & 8'hFF) );\par
+\tab     if (i==3) begin\par
+              `uvm_info("zaphod hyper ram memory OSPI0 BKDR WR: Lower 64MB/256MB addr", $sformatf("addr = %x | data = %x",addr, data), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+          `ifdef HYPER_RAM_X16_HSPI0\par
+            tb_top.u_hspi0_hyper_x16_lb_if.ifull.Preload(addr, ( (data >> (i * 16)) & 16'hFFFF));\par
+\tab     if (i==1) begin\par
+              `uvm_info("zaphod hyper ram memory HSPI0 BKDR WR: Lower 64MB/256MB addr", $sformatf("addr = %x | data = %x",addr, data), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+        end else if (mem_name == "OSPI1_HYPER_RAM") begin\par
+          `ifdef HYPER_RAM_OSPI1 \par
+\tab     tb_top.u_ospi1_hyper_x8_lb_if.ifull.Preload(addr, ( (data >> (i * 8)) & 8'hFF) );\par
+\tab     if (i==3) begin\par
+              `uvm_info("zaphod hyper ram memory OSPI1 BKDR WR: Lower 64MB/256MB addr", $sformatf("addr = %x | data = %x",addr, data), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+          `ifdef HYPER_RAM_X16_HSPI1\par
+            tb_top.u_hspi1_hyper_x16_lb_if.ifull.Preload(addr, ( (data >> (i * 16)) & 16'hFFFF));\par
+\tab     if (i==1) begin\par
+              `uvm_info("zaphod hyper ram memory HSPI1 BKDR WR: Lower 64MB/256MB addr", $sformatf("addr = %x | data = %x",addr, data), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+        end\par
+      end\par
+      // Upper 64MB/256MB addr space, ss_n[1]\par
+      else if (ospi_ub == 1'b1) begin\par
+        if (mem_name == "OSPI0_HYPER_RAM") begin\par
+          `ifdef HYPER_RAM_OSPI0 \par
+\tab     tb_top.u_ospi0_hyper_x8_ub_if.ifull.Preload(addr, ( (data >> (i * 8)) & 8'hFF));\par
+\tab     if (i==3) begin\par
+              `uvm_info("zaphod hyper ram memory OSPI0 BKDR WR: Upper 64MB/256MB addr", $sformatf("addr = %x | data = %x",addr, data), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+          `ifdef HYPER_RAM_X16_HSPI0\par
+            tb_top.u_hspi0_hyper_x16_ub_if.ifull.Preload(addr, ( (data >> (i * 16)) & 16'hFFFF));\par
+\tab     if (i==1) begin\par
+              `uvm_info("zaphod hyper ram memory HSPI0 BKDR WR: Upper 64MB/256MB addr", $sformatf("addr = %x | data = %x",addr, data), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+        end else if (mem_name == "OSPI1_HYPER_RAM") begin\par
+          `ifdef HYPER_RAM_OSPI1 \par
+\tab     tb_top.u_ospi1_hyper_x8_ub_if.ifull.Preload(addr, ( (data >> (i * 8)) & 8'hFF));\par
+\tab     if (i==3) begin\par
+              `uvm_info("zaphod hyper ram memory OSPI1 BKDR WR: Upper 64MB/256MB addr", $sformatf("addr = %x | data = %x",addr, data), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+          `ifdef HYPER_RAM_X16_HSPI1\par
+            tb_top.u_hspi1_hyper_x16_ub_if.ifull.Preload(addr, ( (data >> (i * 16)) & 16'hFFFF));\par
+\tab     if (i==1) begin\par
+              `uvm_info("zaphod hyper ram memory HSPI1 BKDR WR: Upper 64MB/256MB addr", $sformatf("addr = %x | data = %x",addr, data), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+        end\par
+      end\par
+      `ifdef HYPER_RAM_X16_HSPI0\par
+        addr -= 2;\par
+      `elsif HYPER_RAM_X16_HSPI1\par
+        addr -= 2;\par
+      `else\par
+        addr -= 1;\par
+      `endif\par
+    end\par
+  endtask : write_hyper_ram_model\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  task zaphod_write_memory(bit [31:0] addr, bit[3:0] strb, bit[31:0] data, bit mark_as_written);\par
+    bit [255:0] rd_data;\par
+    \par
+    `uvm_info("zaphod_write_memory", $sformatf("addr = %x | strb = %x | data = %x",addr, strb, data), UVM_HIGH);\par
+    data = \{\par
+      \{8\{strb[3]\}\}, \par
+      \{8\{strb[2]\}\}, \par
+      \{8\{strb[1]\}\}, \par
+      \{8\{strb[0]\}\}\par
+      \} & data;\par
+\par
+    if($test$plusargs("BOUNDARY_CROSS_SRAM")) begin \par
+      if(mem_name != "REF") begin\par
+        if(addr >= 32'h0240_0000 )\par
+          mem_name = "SRAM1"; \par
+        else\par
+          mem_name = "SRAM0";\par
+       end\par
+    end\par
+    if($test$plusargs("SRAM_DTCM_MIRROR")) begin \par
+      if(mem_name != "REF") begin\par
+        if(addr >= 32'h0380_0000 )\par
+          mem_name = "DTCM_ES0"; \par
+        else\par
+          mem_name = "SRAM_STRIPED";\par
+      end\par
+    end\par
+\par
+    if(mem_name == "SRAM0" || mem_name == "SRAM1" || mem_name == "SRAM_STRIPED")\par
+    begin\par
+      bit [31:0] wmask;\par
+\par
+      `uvm_info("zaphod_write_memory", $sformatf("addr = %x | strb = %x | data = %x mem name %s",addr, strb, data,mem_name), UVM_NONE)\par
+\par
+      wmask = strb << (addr % 32);\par
+      wmask = ~wmask;\par
+      `uvm_info( "zaphod_write_memory",$sformatf("wmask = %x", wmask), UVM_HIGH)\par
+\par
+      bkdr_rd_mem(addr & (~ 32'h1f), rd_data, mem_name, 32);\par
+\par
+      `uvm_info( "zaphod_Write_memory",$sformatf("before rd_data = %x", rd_data), UVM_HIGH)\par
+\par
+      rd_data &= \{\par
+        \{8\{wmask[31]\}\}, \{8\{wmask[30]\}\}, \{8\{wmask[29]\}\}, \{8\{wmask[28]\}\},\par
+        \{8\{wmask[27]\}\}, \{8\{wmask[26]\}\}, \{8\{wmask[25]\}\}, \{8\{wmask[24]\}\},\par
+        \{8\{wmask[23]\}\}, \{8\{wmask[22]\}\}, \{8\{wmask[21]\}\}, \{8\{wmask[20]\}\},\par
+        \{8\{wmask[19]\}\}, \{8\{wmask[18]\}\}, \{8\{wmask[17]\}\}, \{8\{wmask[16]\}\},\par
+        \{8\{wmask[15]\}\}, \{8\{wmask[14]\}\}, \{8\{wmask[13]\}\}, \{8\{wmask[12]\}\},\par
+        \{8\{wmask[11]\}\}, \{8\{wmask[10]\}\}, \{8\{wmask[09]\}\}, \{8\{wmask[08]\}\},\par
+        \{8\{wmask[07]\}\}, \{8\{wmask[06]\}\}, \{8\{wmask[05]\}\}, \{8\{wmask[04]\}\},\par
+        \{8\{wmask[03]\}\}, \{8\{wmask[02]\}\}, \{8\{wmask[01]\}\}, \{8\{wmask[00]\}\}\par
+        \};\par
+      `uvm_info("zaphod_write_memory", $sformatf("middle rd_data = %x", rd_data), UVM_HIGH)\par
+      rd_data |= data << ((addr % 32) * 8);\par
+      `uvm_info("zaphod_write_memory", $sformatf("last rd_data = %x", rd_data), UVM_HIGH)\par
+      bkdr_wr_mem(addr & (~ 32'h1f), rd_data, mem_name, 32);\par
+    end\par
+    else if(mem_name == "MRAM")\par
+    begin\par
+      bit [15:0] wmask;\par
+\par
+      `uvm_info( "zaphod_write_memory",$sformatf("addr = %x | strb = %x | data = %x",addr, strb, data), UVM_LOW)\par
+\par
+      wmask = strb << (addr % 16);\par
+      wmask = ~wmask;\par
+      `uvm_info("zaphod_write_memory", $sformatf("wmask = %x", wmask), UVM_HIGH)\par
+\par
+      bkdr_rd_mem(addr & (~ 32'h0f), rd_data, mem_name, 16);\par
+\par
+      `uvm_info("zaphod_write_memory", $sformatf("before rd_data = %x", rd_data), UVM_HIGH)\par
+\par
+      rd_data &= \{\par
+        \{8\{wmask[15]\}\}, \{8\{wmask[14]\}\}, \{8\{wmask[13]\}\}, \{8\{wmask[12]\}\},\par
+        \{8\{wmask[11]\}\}, \{8\{wmask[10]\}\}, \{8\{wmask[09]\}\}, \{8\{wmask[08]\}\},\par
+        \{8\{wmask[07]\}\}, \{8\{wmask[06]\}\}, \{8\{wmask[05]\}\}, \{8\{wmask[04]\}\},\par
+        \{8\{wmask[03]\}\}, \{8\{wmask[02]\}\}, \{8\{wmask[01]\}\}, \{8\{wmask[00]\}\}\par
+        \};\par
+      `uvm_info("zaphod_write_memory", $sformatf("middle rd_data = %x", rd_data), UVM_HIGH)\par
+      rd_data |= data << ((addr % 16) * 8);\par
+      `uvm_info("zaphod_write_memory" ,$sformatf("last rd_data = %x", rd_data), UVM_HIGH)\par
+      bkdr_wr_mem(addr & (~ 32'h0f), rd_data, mem_name, 16);\par
+    end\par
+    else if(mem_name == "DTCM_ES0" || mem_name == "DTCM_ES1" || mem_name == "ITCM_ES0" || mem_name == "ITCM_ES1")\par
+    begin\par
+      rd_data = data;\par
+      for(int i = 0; i < 4; i++) begin\par
+        `uvm_info( "zaphod_write_memory TCM",$sformatf("addr = 32'h%x | strb = %x | data = 8'h%x",addr+i, strb, rd_data[i*8 +: 8]), UVM_HIGH)\par
+        bkdr_wr_mem(addr+i, rd_data[i*8 +: 8], mem_name,16);\par
+      end\par
+    end\par
+    else if(mem_name == "OSPI0_FLASH") begin\par
+      `uvm_info("zaphod_write_memory OSPI_FLASH", $sformatf("addr = %x | strb = %x | data = %x",addr, strb, data), UVM_NONE)\par
+      write_nor_flash_model(addr, strb, data);\par
+    end\par
+    else if ((mem_name == "OSPI0_HYPER_RAM") || (mem_name == "OSPI1_HYPER_RAM")) begin\par
+      `uvm_info("zaphod_write_memory OSPI_HYPER_RAM", $sformatf("addr = %x | strb = %x | data = %x",addr, strb, data), UVM_NONE)\par
+      // TODO: Update below task to write data based on strobe signal\par
+      write_hyper_ram_model(addr, data);\par
+    end\par
+    else if(mem_name == "REF") begin\par
+      if(addr inside \{[32'h0280_0000:32'h02FF_FFFF]\})\par
+        addr = 32'h5080_0000 + (addr - 32'h0280_0000); // to load in ES0 dtcm 'h508xxxxx\par
+      if(addr inside \{[32'h0380_0000:32'h03FF_FFFF]\}) \par
+        addr = 32'h5080_0000 + (addr - 32'h0380_0000); // to load in ES0 dtcm 'h508xxxxx\par
+      ref_mem[addr] = data;\par
+      `uvm_info( "zaphod_write_memory",$sformatf("addr = %x | strb = %x | data = %x",addr, strb, data), UVM_LOW)\par
+    end\par
+    else if (mem_name == "UNKNOWN_MEM") begin\par
+      `uvm_fatal("zaphod_write_memory", $sformatf("No memory found for addr = 32'h%0h", addr))\par
+    end\par
+  endtask : zaphod_write_memory\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description: This below task core logic is ported from zaphod OOB TB,\par
+  //              but multiple modifications added on top of it.\par
+  // -------------------------------------\par
+  task zaphod_load_memory;\par
+    input string                 file_path;\par
+    input npu_workload_e         region_type;\par
+    input [48:0]                 mem_addr;\par
+\par
+    reg [MAX_LINE_LENGTH*8:1]    line;\par
+    reg [8*8:1]                  str, stmp[3:0];\par
+    reg [31:0]                   tmp;\par
+    reg [3:0]                    we;\par
+    integer                      i, c, r, lineno, file;\par
+    int                          hexfile_start_lineno;\par
+    reg [48:0]                   workload_file_offset;\par
+    reg [48:0]                   min_addr, max_addr;\par
+    bit [48:0]                   cur_addr = mem_addr;\par
+    int                          region_size;\par
+    bit                          error;\par
+    begin\par
+      region_size = zaphod_cfg.workload_size[region_type];\par
+      mem_name    = zaphod_cfg.workload_mem_name[region_type];\par
+      if (region_type == REF_OUTPUT_STREAM_e) begin\par
+\tab mem_name    = "REF";\par
+      end\par
+\par
+    `ifdef KWS_TEST \par
+      `uvm_info(get_type_name(), $sformatf("In KWS_TEST section, region_type = %s", region_type), UVM_LOW)\par
+      if (region_type == CMD_STREAM_e) begin\par
+        hexfile_start_lineno = (zaphod_cfg.workload_size[WEIGHT_STREAM_e] / 'd16) + 'd1;\par
+      end\par
+      else\par
+        hexfile_start_lineno = 1;\par
+\par
+    `else\par
+\par
+      if (region_type == INPUT_DATA_STREAM_e) begin\par
+        hexfile_start_lineno = (zaphod_cfg.workload_size[CMD_STREAM_e] / 'd16) + 'd1;\par
+      end\par
+      else if (region_type == WEIGHT_STREAM_e) begin\par
+        hexfile_start_lineno = ( (zaphod_cfg.workload_size[CMD_STREAM_e] + zaphod_cfg.workload_size[INPUT_DATA_STREAM_e]) / 'd16) + 'd1;\par
+      end\par
+      else\par
+        hexfile_start_lineno = 1;\par
+\par
+    `endif  \par
+\par
+      $display("Loading memory from file %0s ",file_path);\par
+      `uvm_info(get_type_name(),$sformatf("Loading memory for region_type = %0s, region_size = 32'h%0x, mem_name = %0s, mem_addr = 32'h%0x,  ",region_type.name,region_size,mem_name,mem_addr), UVM_LOW)\par
+      tmp = 32'd0;\par
+      file = $fopen(file_path, "r");\par
+      if(!file) begin\par
+        error = 1'b1;\par
+        $display("ERROR: cannot open %0s for reading!", file_path);\par
+      end\par
+      else \par
+      begin\par
+        error = 1'b0;\par
+        line = 1'b0;\par
+        lineno = 1;\par
+        min_addr = \{49\{1'b1\}\};\par
+        max_addr = \{49\{1'b0\}\};\par
+        c = $fgets(line, file);\par
+        while(c>0 && !error)\par
+        begin\par
+          r = $sscanf(line, " %x: %s %s %s %s", workload_file_offset, stmp[0], stmp[1], stmp[2], stmp[3]);\par
+\tab   // TODO: change to UVM_HIGH\par
+          `uvm_info(get_type_name(),$sformatf("Current lineno = %0d, Expected hexfile_start_lineno = %0d",lineno, hexfile_start_lineno), UVM_LOW)\par
+          if (lineno < hexfile_start_lineno) begin\par
+\tab     // Backdoor loading of corresponding region starts from defined\par
+\tab     // start line from the hex file\par
+            lineno = lineno + 1;\par
+            c = $fgets(line, file);\par
+\tab     continue;\par
+\tab   end\par
+\tab   if ((lineno-hexfile_start_lineno + 'd1) > (region_size/16)) begin\par
+            `uvm_info(get_type_name(),$sformatf("Current lineno = %0d, region_size limit is reached. Stopped further data loading for %0s",lineno,region_type.name), UVM_LOW)\par
+\tab     break;\par
+          end\par
+\par
+          if(r==5)\par
+          begin\par
+            for(i=0; i<4 && !error; i=i+1)\par
+            begin\par
+              str = stmp[i];\par
+              we = 4'b1111;\par
+\par
+              if(str['h10:'h01]=="..") begin\par
+                str['h10:'h01]="zz";\par
+                we[0] = 1'b0;\par
+              end\par
+              if(str['h20:'h11]=="..") begin\par
+                str['h20:'h11]="zz";\par
+                we[1] = 1'b0;\par
+              end\par
+              if(str['h30:'h21]=="..") begin\par
+                str['h30:'h21]="zz";\par
+                we[2] = 1'b0;\par
+              end\par
+              if(str['h40:'h31]=="..") begin\par
+                str['h40:'h31]="zz";\par
+                we[3] = 1'b0;\par
+              end\par
+\par
+              r = $sscanf(str, "%x", tmp);\par
+              if(r==1) begin\par
+                zaphod_write_memory(cur_addr, we, tmp, 1'b0);\par
+                if(cur_addr < min_addr)\par
+                  min_addr = cur_addr;\par
+                if(cur_addr > max_addr)\par
+                  max_addr = cur_addr;\par
+              end\par
+              else begin\par
+                error = 1'b1;\par
+                $display("ERROR: parse error at line %0d!", lineno);\par
+              end\par
+              cur_addr += 4;\par
+            end\par
+          end\par
+          else if(r>0) begin\par
+            error = 1'b1;\par
+            $display("ERROR: parse error at line %0d!", lineno);\par
+          end\par
+\par
+          c = $fgets(line, file);\par
+          lineno = lineno + 1;\par
+        end\par
+\par
+        if(min_addr < max_addr)\par
+\tab   // TO DO: Update print with other arguments\par
+          $display("... wrote from %X to %X", min_addr, max_addr);\par
+        else\par
+          $display("... wrote nothing!");\par
+\par
+        $fclose(file);\par
+\par
+        if(error) begin\par
+          `uvm_fatal( "zaphod_task","Error Generated while Loading Memory")\par
+        end\par
+      end\par
+    end\par
+  endtask : zaphod_load_memory\par
+  \par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual task zaphod_reg_write (input bit[31:0] reg_offset, \par
+                                       bit[31:0] write_data);\par
+    ZAPHOD_APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),\par
+                             .mstr_idx(zaphod_mstr_apb_idx),\par
+                             .wr_address(reg_offset),\par
+                             .wr_data(write_data));\par
+    `uvm_info(get_type_name(),$sformatf("Zaphod register write: Offset = 32'h%0h, Data = 32'h%0h",reg_offset,write_data), UVM_HIGH)\par
+  endtask : zaphod_reg_write\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual task zaphod_reg_read (input bit[31:0]  reg_offset,\par
+                                output bit[31:0] read_data);\par
+    ZAPHOD_APB_MASTER_RD_SEQ(.ss_idx(sh_mem_ss_idx),\par
+                             .mstr_idx(zaphod_mstr_apb_idx),\par
+                             .rd_address(reg_offset),\par
+                             .rd_data(read_data));\par
+    `uvm_info(get_type_name(),$sformatf("Zaphod register read: Offset = 32'h%0h, Data = 32'h%0h",reg_offset,read_data), UVM_HIGH)\par
+  endtask : zaphod_reg_read\par
+  \par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual task zaphod_irq_routine(input bit[31:0]  expected_status = 32'h22);\par
+    `uvm_info(get_type_name(),$sformatf("ISR: Waiting for Zaphod interrupt"), UVM_LOW)\par
+    @(posedge `SH_MEM_HIER.zaphod_irq); \par
+    `uvm_info(get_type_name(),$sformatf("ISR: Detected Zaphod interrupt"), UVM_LOW)\par
+    //#100ns;\par
+    //zaphod_perf_check();\par
+    zaphod_reg_read( .reg_offset(32'h4),.read_data(read_data) );\par
+    if (read_data != expected_status) begin\par
+      `uvm_error(get_type_name(), $sformatf("Status register MISMATCH: Actual data = 32'h%0h, Expected data = 32'h%0h",read_data,expected_status))\par
+    end\par
+    else begin \par
+      `uvm_info(get_type_name(),$sformatf("Status register MATCH"), UVM_LOW)\par
+      // CMD register: Bit[1]: clear_irq\par
+      //               Bit[3:2]: Eable Power & Clock Q interface for autogating operation\par
+      zaphod_reg_write( .reg_offset(32'h8),.write_data(32'hE) );\par
+      `uvm_info(get_type_name(),$sformatf("Interrupt cleared by writing to CMD register"), UVM_LOW)\par
+      intr_handled = 1;\par
+    end\par
+  endtask : zaphod_irq_routine\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual task zaphod_perf_config();\par
+    zaphod_reg_write( .reg_offset(32'h1380),.write_data(32'h23) );//npu active\par
+    if(regioncfg[0] == 0 || regioncfg[4] == 0 || regioncfg[6] == 0)begin\par
+      zaphod_reg_write( .reg_offset(32'h1384),.write_data(32'h82) );//sram no of read beats received\par
+      zaphod_reg_write( .reg_offset(32'h1388),.write_data(32'h87) );//sram no of write beates written\par
+      zaphod_reg_write( .reg_offset(32'h1394),.write_data(32'h8C) );//sram no of cycles sum count  \par
+    end\par
+    if(regioncfg[0] != 0 || regioncfg[4] != 0 || regioncfg[6] != 0)begin\par
+      zaphod_reg_write( .reg_offset(32'h138C),.write_data(32'h182) );//ext no of read beats received\par
+      zaphod_reg_write( .reg_offset(32'h1390),.write_data(32'h187) );//ext no of write beats written\par
+      zaphod_reg_write( .reg_offset(32'h1398),.write_data(32'h18C) );//ext no of cycles sum count  \par
+    end     \par
+    zaphod_reg_write( .reg_offset(32'h1184),.write_data(32'h8000_007F) );//enabling configured evetns\par
+    //zaphod_reg_write( .reg_offset(32'h11A8),.write_data(32'h0085_0080) );//configuring counter cfg\par
+  endtask : zaphod_perf_config\par
+\par
+//Declaring memory enums\par
+  real min_val;\par
+  real max_val;\par
+\par
+  \par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual task zaphod_perf_check();\par
+    int perf_mon_cnt  = 0;\par
+    int sram_rd_beats = 0;\par
+    int sram_wr_beats = 0;\par
+    int ext_rd_beats = 0;\par
+    int ext_wr_beats = 0;\par
+    real sram_total_beats,ext_total_beats,total_bytes,total_time,perf_val;\par
+   \par
+   zaphod_reg_read( .reg_offset(32'h1300),.read_data(perf_mon_cnt) );\par
+  `uvm_info(get_type_name(),$sformatf("performance count cycle = %d\\n",perf_mon_cnt), UVM_NONE)\par
+  if(regioncfg[0] == 0 || regioncfg[4] == 0 || regioncfg[6] == 0)begin\par
+    zaphod_reg_read( .reg_offset(32'h1304),.read_data(sram_rd_beats) );\par
+    `uvm_info(get_type_name(),$sformatf("SRAM read data beats = %d\\n",sram_rd_beats), UVM_NONE) \par
+    zaphod_reg_read( .reg_offset(32'h1308),.read_data(sram_wr_beats) );\par
+    `uvm_info(get_type_name(),$sformatf("SRAM write data beats = %d\\n",sram_wr_beats), UVM_NONE) \par
+    sram_total_beats = sram_rd_beats + sram_wr_beats;\par
+    `uvm_info(get_type_name(),$sformatf("SRAM total beats = %f bytes\\n",sram_total_beats), UVM_NONE) \par
+  end\par
+  if(regioncfg[0] != 0 || regioncfg[4] != 0 || regioncfg[6] != 0)begin\par
+    zaphod_reg_read( .reg_offset(32'h130C),.read_data(ext_rd_beats) );\par
+    `uvm_info(get_type_name(),$sformatf("EXT read data beats = %d\\n",ext_rd_beats), UVM_NONE) \par
+    zaphod_reg_read( .reg_offset(32'h1310),.read_data(ext_wr_beats) );\par
+    `uvm_info(get_type_name(),$sformatf("EXT write beats = %d\\n",ext_wr_beats), UVM_NONE) \par
+    ext_total_beats = ext_rd_beats + ext_wr_beats;\par
+    `uvm_info(get_type_name(),$sformatf("EXT total beats = %f bytes\\n",ext_total_beats), UVM_NONE)\par
+  end\par
+    total_time  = perf_mon_cnt * (CLK_PERIOD);\par
+    total_bytes = (sram_total_beats + ext_total_beats) * 16; \par
+    perf_val    = total_bytes / total_time;\par
+//Getting memory ranges\par
+    get_min_max_enum(min_val,max_val,mem_name);\par
+    \par
+    `uvm_info(get_full_name(),$sformatf("min val : %f max val : %f mem enum : %s",min_val,max_val,mem_name),UVM_LOW)\par
+//Assertion to check Perfomacne value is expected range or not\par
+    if(perf_val inside \{[min_val : max_val]\}) begin \par
+      `uvm_info(get_full_name(),$sformatf("perf val %0f is matching with expected perf range of %s min: %0f max: %0f",\par
+       perf_val,mem_name,min_val,max_val),UVM_LOW) end\par
+    else begin\par
+      `uvm_error(get_full_name(),$sformatf("perf val %0f is not matching with expected perf range of %s min: %0f max: %0f",\par
+       perf_val,mem_name,min_val,max_val)) end\par
+   \par
+\par
+  endtask : zaphod_perf_check\par
+\par
+  ///////////////  Performance tasks  \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\  \par
+\par
+\par
+// Enum for Memory Types\par
+typedef enum logic [5:0] \{\par
+    SRAM_STRIPED_e = 6'b000000,\par
+    SRAM0_e = 6'b000001,\par
+    MRAM_e = 6'b000010,\par
+    TCM_ES1_ES0_e = 6'b000011,\par
+    ZAPHOD_OSPI_e = 6'b000100,\par
+    ZAPHOD_HSPI_e = 6'b000101,\par
+    SRAM1_e       = 6'b000110,\par
+    TCM_ES0_e    = 6'b000111,\par
+    TCM_ES1_e    = 6'b001000,\par
+    KWS_SRAM_e   = 6'b001001,\par
+    KWS_SRAM_STRIPE_e = 6'b001010, \par
+    KWS_MRAM_e       = 6'b001011,\par
+    KWS_ES0_e        = 6'b001100,\par
+    KWS_ES1_e        = 6'b001101,\par
+    KWS_OSPI_e       = 6'b001110\par
+\} mem_type_e;\par
+\par
+// Common enums to hold min and max memory types\par
+  mem_type_e mem_type;\par
+\par
+// Struct to hold memory range information\par
+typedef struct \{\par
+    real min_speed;      // Minimum speed in GB/s\par
+    real max_speed;      // Maximum speed in GB/s\par
+\} mem_range_t;\par
+\par
+// Declare an array to hold memory ranges\par
+  mem_range_t mem_ranges[mem_type_e];\par
+\par
+// Initialize the memory ranges based on the provided data\par
+function mem_perf_ranges();\par
+  if($test$plusargs("ZAPHOD_PERF_CHK")) begin\par
+    mem_ranges[SRAM_STRIPED_e] = '\{3.0, 4.0\};\par
+    mem_ranges[SRAM0_e] = '\{2.9, 3.5\};\par
+    mem_ranges[SRAM1_e] = '\{3.0, 3.8\};\par
+    mem_ranges[MRAM_e] = '\{1.4, 2.1\}; //we are reading only input data from mram. weights and cmds are reading from sram\par
+    mem_ranges[TCM_ES1_ES0_e] = '\{0.6, 3.1\};\par
+    mem_ranges[ZAPHOD_OSPI_e] = '\{0.20, 0.25\};\par
+    mem_ranges[ZAPHOD_HSPI_e] = '\{0.3, 0.4\};\par
+    mem_ranges[KWS_SRAM_e]       = '\{2.1, 2.7\};\par
+    mem_ranges[KWS_SRAM_STRIPE_e]= '\{2.2, 2.8\}; \par
+    mem_ranges[KWS_MRAM_e]       = '\{2.0, 2.6\};\par
+    mem_ranges[KWS_ES0_e]        = '\{1.0, 1.5\};\par
+    mem_ranges[KWS_ES1_e]        = '\{1.1, 1.6\};\par
+    mem_ranges[KWS_OSPI_e]       = '\{0.21, 0.26\};\par
+  end else if($test$plusargs("MEM_PERF_CHK")) begin\par
+    mem_ranges[SRAM_STRIPED_e] = '\{11.3, 12.8\};\par
+    mem_ranges[SRAM0_e] = '\{5.7, 6.4\};\par
+    mem_ranges[MRAM_e] = '\{0.8, 1.1\};\par
+    mem_ranges[TCM_ES1_ES0_e] = '\{2.7, 3.2\};\par
+    mem_ranges[ZAPHOD_OSPI_e] = '\{0.2, 0.34\};\par
+    mem_ranges[ZAPHOD_HSPI_e] = '\{0.3, 0.44\};\par
+  end\par
+endfunction\par
+\par
+// Function to return min and max enums\par
+function void get_min_max_enum(output real min_val, output real max_val, output string mem_name);\par
+    \par
+    if($test$plusargs("SRAM0"))begin\par
+      mem_type        = SRAM0_e;\par
+    end else if($test$plusargs("SRAM1"))begin\par
+      mem_type        = SRAM1_e;\par
+    end else if($test$plusargs("SRAM_STRIPED"))begin\par
+      mem_type        = SRAM_STRIPED_e;\par
+    end else if($test$plusargs("MRAM_CMD_WEIGHT_SRAM_DATA"))begin\par
+      mem_type        = MRAM_e;\par
+    end else if($test$plusargs("OSPI0_CMD_WEIGHT_OSPI1_DATA"))begin\par
+      `ifdef HYPER_RAM_X16_HSPI0\par
+        mem_type        = ZAPHOD_HSPI_e;\par
+      `else\par
+        mem_type        = ZAPHOD_OSPI_e;\par
+      `endif\par
+    end else if($test$plusargs("RAND_TCM"))begin\par
+      mem_type        = TCM_ES1_ES0_e;\par
+    end else if($test$plusargs("SRAM_KWS") || $test$plusargs("SRAM_1_KWS"))begin\par
+      mem_type        = KWS_SRAM_e;\par
+    end else if($test$plusargs("KWS_TEST"))begin\par
+      mem_type        = KWS_MRAM_e;\par
+    end else if($test$plusargs("ST_SRAM_KWS"))begin\par
+      mem_type        = KWS_SRAM_STRIPE_e;\par
+    end else if($test$plusargs("OSPI_KWS"))begin\par
+      mem_type        = KWS_OSPI_e;\par
+    end else if($test$plusargs("ES0_TCM_KWS"))begin\par
+      mem_type        = KWS_ES0_e;\par
+    end else if($test$plusargs("ES1_TCM_KWS"))begin\par
+      mem_type        = KWS_ES1_e;\par
+    end\par
+\par
+   min_val         = mem_ranges[mem_type].min_speed;\par
+   max_val         = mem_ranges[mem_type].max_speed;\par
+   mem_name        = mem_type.name;\par
+   endfunction\par
+\par
+\par
+    \par
+\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  function bit [31:0] bkdr_rd_32bit_data(bit [31:0] addr);\par
+    bit [255:0] rd_data;\par
+    bit         ospi_lb, ospi_ub;\par
+    rd_data = 0;\par
+\par
+    `uvm_info("bkdr_rd_32bit_data", $sformatf("Backdoor Read from addr = 32'h%x, memory = %s",addr,mem_name), UVM_LOW)\par
+    if(mem_name == "SRAM0" || mem_name == "SRAM1" || mem_name == "SRAM_STRIPED") begin\par
+      bkdr_rd_mem(addr & (~ 32'h1f), rd_data, mem_name, 32);\par
+      addr = addr & 32'h1f;                       // addr = addr % 32;\par
+      rd_data = rd_data >> (addr * 8);\par
+      rd_data = rd_data & 256'hFFFF_FFFF;\par
+    end\par
+    else if(mem_name == "MRAM") begin\par
+      bkdr_rd_mem(addr & (~ 32'h0f), rd_data, mem_name, 16);\par
+      addr = addr & 32'h0f;                       // addr = addr % 32;\par
+      rd_data = rd_data >> (addr * 8);\par
+      rd_data = rd_data & 128'hFFFF_FFFF;\par
+    end\par
+    else if(mem_name == "DTCM_ES0" || mem_name == "DTCM_ES1" || mem_name == "ITCM_ES0" || mem_name == "ITCM_ES1") begin\par
+      for(int i = 0; i < 4; i++) begin\par
+        bkdr_rd_mem(addr+i, rd_data[i*8 +: 8], mem_name, 16);\par
+      end\par
+    end\par
+    else if(mem_name == "OSPI0_HYPER_RAM")\par
+    begin\par
+      // Lower 64MB/256MB addr space, ss_n[0]\par
+      if ( (addr >= 32'h2000_0000 && addr < 32'h2400_0000) ||\par
+           (addr >= 32'h2800_0000 && addr < 32'h2C00_0000) ||\par
+           (addr >= 32'hA000_0000 && addr < 32'hB000_0000) || \par
+           (addr >= 32'hC000_0000 && addr < 32'hD000_0000)\par
+\tab  )\par
+      begin\par
+        ospi_lb = 1'b1;\par
+      end\par
+      // Upper 64MB/256MB addr space, ss_n[1]\par
+      else if ( (addr >= 32'h2400_0000 && addr < 32'h2800_0000) ||\par
+                (addr >= 32'h2C00_0000 && addr < 32'h3000_0000) ||\par
+                (addr >= 32'hB000_0000 && addr < 32'hC000_0000) || \par
+                (addr >= 32'hD000_0000 && addr < 32'hE000_0000)\par
+\tab       )\par
+      begin  \par
+        ospi_ub = 1'b1;\par
+      end\par
+\par
+      // bit 25 should be preserved for x16, as shifted addr is utilized\par
+      addr = addr & 26'h7ff_ffff;\par
+      addr = addr + 3;\par
+\par
+      `ifdef HYPER_RAM_X16_HSPI0\par
+        for(int i = 0; i < 2; i++)\par
+      `elsif HYPER_RAM_X16_HSPI1\par
+        for(int i = 0; i < 2; i++)\par
+      `else\par
+        for(int i = 0; i < 4; i++)\par
+      `endif\par
+      begin\par
+        if (ospi_lb == 1'b1) begin\par
+          `ifdef HYPER_RAM_OSPI0\par
+            rd_data[(i * 8) + 0] = tb_top.u_ospi0_hyper_x8_lb_if.ifull.DQ0_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 1] = tb_top.u_ospi0_hyper_x8_lb_if.ifull.DQ1_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 2] = tb_top.u_ospi0_hyper_x8_lb_if.ifull.DQ2_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 3] = tb_top.u_ospi0_hyper_x8_lb_if.ifull.DQ3_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 4] = tb_top.u_ospi0_hyper_x8_lb_if.ifull.DQ4_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 5] = tb_top.u_ospi0_hyper_x8_lb_if.ifull.DQ5_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 6] = tb_top.u_ospi0_hyper_x8_lb_if.ifull.DQ6_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 7] = tb_top.u_ospi0_hyper_x8_lb_if.ifull.DQ7_CELLS[addr[24:16]][addr[15:0]];\par
+\tab     if (i == 3) begin\par
+              `uvm_info("bkdr_rd_32bit_data OSPI0 lower address", $sformatf("addr = 32'h%x | rd_data = 32'h%x",addr, rd_data[31:0]), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+          `ifdef HYPER_RAM_X16_HSPI0\par
+            rd_data[(i * 16) + 0]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ0_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 1]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ1_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 2]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ2_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 3]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ3_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 4]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ4_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 5]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ5_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 6]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ6_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 7]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ7_CELLS[addr[25:17]][addr[16:1]];\par
+            \par
+\tab     rd_data[(i * 16) + 8]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ8_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 9]  = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ9_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 10] = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ10_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 11] = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ11_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 12] = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ12_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 13] = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ13_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 14] = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ14_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 15] = tb_top.u_hspi0_hyper_x16_lb_if.ifull.DQ15_CELLS[addr[25:17]][addr[16:1]];\par
+            `uvm_info("bkdr_rd_32bit_data HSPI0 lower address", $sformatf("addr = 25'h%x | rd_data = 32'h%x",(addr>>1)&25'h3FF_FFFF, rd_data[31:0]), UVM_LOW)\par
+          `endif\par
+        end else if (ospi_ub == 1'b1) begin\par
+          `ifdef HYPER_RAM_OSPI0\par
+            rd_data[(i * 8) + 0] = tb_top.u_ospi0_hyper_x8_ub_if.ifull.DQ0_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 1] = tb_top.u_ospi0_hyper_x8_ub_if.ifull.DQ1_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 2] = tb_top.u_ospi0_hyper_x8_ub_if.ifull.DQ2_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 3] = tb_top.u_ospi0_hyper_x8_ub_if.ifull.DQ3_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 4] = tb_top.u_ospi0_hyper_x8_ub_if.ifull.DQ4_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 5] = tb_top.u_ospi0_hyper_x8_ub_if.ifull.DQ5_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 6] = tb_top.u_ospi0_hyper_x8_ub_if.ifull.DQ6_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 7] = tb_top.u_ospi0_hyper_x8_ub_if.ifull.DQ7_CELLS[addr[24:16]][addr[15:0]];\par
+\tab     if (i == 3) begin\par
+              `uvm_info("bkdr_rd_32bit_data OSPI0 Upper address", $sformatf("addr = 32'h%x | rd_data = 32'h%x",addr, rd_data[31:0]), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+          `ifdef HYPER_RAM_X16_HSPI0\par
+            rd_data[(i * 16) + 0]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ0_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 1]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ1_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 2]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ2_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 3]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ3_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 4]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ4_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 5]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ5_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 6]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ6_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 7]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ7_CELLS[addr[25:17]][addr[16:1]];\par
+            \par
+\tab     rd_data[(i * 16) + 8]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ8_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 9]  = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ9_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 10] = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ10_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 11] = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ11_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 12] = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ12_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 13] = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ13_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 14] = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ14_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 15] = tb_top.u_hspi0_hyper_x16_ub_if.ifull.DQ15_CELLS[addr[25:17]][addr[16:1]];\par
+            `uvm_info("bkdr_rd_32bit_data HSPI0 Upper address", $sformatf("addr = 25'h%x | rd_data = 32'h%x",(addr>>1)&25'h3FF_FFFF, rd_data[31:0]), UVM_LOW)\par
+          `endif\par
+        end\par
+      `ifdef HYPER_RAM_X16_HSPI0\par
+        addr -= 2;\par
+      `else\par
+        addr -= 1;\par
+      `endif\par
+      end\par
+      `ifndef HYPER_RAM_X16_HSPI0\par
+        rd_data[31:0] = \{rd_data[15:0], rd_data[31:16]\}; \par
+      `endif\par
+    end\par
+    else if(mem_name == "OSPI1_HYPER_RAM")\par
+    begin\par
+      // Lower 64MB/256MB addr space, ss_n[0]\par
+      if ( (addr >= 32'h2000_0000 && addr < 32'h2400_0000) ||\par
+           (addr >= 32'h2800_0000 && addr < 32'h2C00_0000) ||\par
+           (addr >= 32'hA000_0000 && addr < 32'hB000_0000) || \par
+           (addr >= 32'hC000_0000 && addr < 32'hD000_0000)\par
+\tab  )\par
+      begin\par
+        ospi_lb = 1'b1;\par
+      end\par
+      // Upper 64MB/256MB addr space, ss_n[1]\par
+      else if ( (addr >= 32'h2400_0000 && addr < 32'h2800_0000) ||\par
+                (addr >= 32'h2C00_0000 && addr < 32'h3000_0000) ||\par
+                (addr >= 32'hB000_0000 && addr < 32'hC000_0000) || \par
+                (addr >= 32'hD000_0000 && addr < 32'hE000_0000)\par
+\tab       )\par
+      begin\par
+        ospi_ub = 1'b1;\par
+      end\par
+     \par
+      // bit 25 should be preserved for x16, as shifted addr is utilized\par
+      addr = addr & 26'h7ff_ffff;\par
+      addr = addr + 3;\par
+      `ifdef HYPER_RAM_X16_HSPI1\par
+        for(int i = 0; i < 2; i++)\par
+      `else\par
+        for(int i = 0; i < 4; i++)\par
+      `endif\par
+      begin\par
+        if (ospi_lb == 1'b1) begin\par
+          `ifdef HYPER_RAM_OSPI1\par
+            rd_data[(i * 8) + 0] = tb_top.u_ospi1_hyper_x8_lb_if.ifull.DQ0_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 1] = tb_top.u_ospi1_hyper_x8_lb_if.ifull.DQ1_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 2] = tb_top.u_ospi1_hyper_x8_lb_if.ifull.DQ2_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 3] = tb_top.u_ospi1_hyper_x8_lb_if.ifull.DQ3_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 4] = tb_top.u_ospi1_hyper_x8_lb_if.ifull.DQ4_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 5] = tb_top.u_ospi1_hyper_x8_lb_if.ifull.DQ5_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 6] = tb_top.u_ospi1_hyper_x8_lb_if.ifull.DQ6_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 7] = tb_top.u_ospi1_hyper_x8_lb_if.ifull.DQ7_CELLS[addr[24:16]][addr[15:0]];\par
+\tab     if (i == 3) begin\par
+              `uvm_info("bkdr_rd_32bit_data OSPI1 lower address", $sformatf("addr = 32'h%x | rd_data = 32'h%x",addr, rd_data[31:0]), UVM_LOW)\par
+\tab     end\par
+          `endif\par
+          `ifdef HYPER_RAM_X16_HSPI1\par
+\tab     rd_data[(i * 16) + 0]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ0_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 1]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ1_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 2]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ2_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 3]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ3_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 4]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ4_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 5]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ5_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 6]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ6_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 7]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ7_CELLS[addr[25:17]][addr[16:1]];\par
+            \par
+\tab     rd_data[(i * 16) + 8]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ8_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 9]  = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ9_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 10] = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ10_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 11] = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ11_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 12] = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ12_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 13] = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ13_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 14] = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ14_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 15] = tb_top.u_hspi1_hyper_x16_lb_if.ifull.DQ15_CELLS[addr[25:17]][addr[16:1]];\par
+\tab     //if (i==1) begin\par
+              `uvm_info("bkdr_rd_32bit_data HSPI1 lower address", $sformatf("addr = 25'h%x | rd_data = 32'h%x",(addr>>1)&25'h3FF_FFFF, rd_data[31:0]), UVM_LOW)\par
+\tab     //end\par
+          `endif\par
+        end else if (ospi_ub == 1'b1) begin\par
+          `ifdef HYPER_RAM_OSPI1\par
+            rd_data[(i * 8) + 0] = tb_top.u_ospi1_hyper_x8_ub_if.ifull.DQ0_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 1] = tb_top.u_ospi1_hyper_x8_ub_if.ifull.DQ1_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 2] = tb_top.u_ospi1_hyper_x8_ub_if.ifull.DQ2_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 3] = tb_top.u_ospi1_hyper_x8_ub_if.ifull.DQ3_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 4] = tb_top.u_ospi1_hyper_x8_ub_if.ifull.DQ4_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 5] = tb_top.u_ospi1_hyper_x8_ub_if.ifull.DQ5_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 6] = tb_top.u_ospi1_hyper_x8_ub_if.ifull.DQ6_CELLS[addr[24:16]][addr[15:0]];\par
+            rd_data[(i * 8) + 7] = tb_top.u_ospi1_hyper_x8_ub_if.ifull.DQ7_CELLS[addr[24:16]][addr[15:0]];\par
+\tab     if (i == 3) begin\par
+              `uvm_info("bkdr_rd_32bit_data OSPI1 Upper address", $sformatf("addr = 32'h%x | rd_data = 32'h%x",addr, rd_data[31:0]), UVM_LOW)\par
+\tab     end\par
+          `endif       \par
+          `ifdef HYPER_RAM_X16_HSPI1\par
+\tab     rd_data[(i * 16) + 0]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ0_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 1]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ1_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 2]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ2_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 3]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ3_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 4]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ4_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 5]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ5_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 6]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ6_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 7]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ7_CELLS[addr[25:17]][addr[16:1]];\par
+            \par
+\tab     rd_data[(i * 16) + 8]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ8_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 9]  = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ9_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 10] = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ10_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 11] = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ11_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 12] = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ12_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 13] = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ13_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 14] = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ14_CELLS[addr[25:17]][addr[16:1]];\par
+            rd_data[(i * 16) + 15] = tb_top.u_hspi1_hyper_x16_ub_if.ifull.DQ15_CELLS[addr[25:17]][addr[16:1]];\par
+\tab     //if (i==1) begin\par
+              `uvm_info("bkdr_rd_32bit_data HSPI1 Upper address", $sformatf("addr = 25'h%x | rd_data = 32'h%x",(addr>>1)&25'h3FF_FFFF, rd_data[31:0]), UVM_LOW)\par
+\tab     //end\par
+          `endif\par
+        end\par
+        `ifdef HYPER_RAM_X16_HSPI1\par
+          addr -= 2;\par
+        `else\par
+          addr -= 1;\par
+        `endif\par
+      end\par
+      `ifndef HYPER_RAM_X16_HSPI1\par
+        rd_data[31:0] = \{rd_data[15:0], rd_data[31:16]\}; \par
+      `endif\par
+    end\par
+    `uvm_info("bkdr_rd_32bit_data", $sformatf("addr = 32'h%x | rd_data = 32'h%x",addr, rd_data[31:0]), UVM_HIGH)\par
+    return rd_data;\par
+  endfunction\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  task zaphod_check_mem(output bit check_mem);\par
+    bit [31:0] min_addr;\par
+    bit [31:0] max_addr;\par
+    bit [31:0] effective_addr;\par
+    bit [31:0] actual_data;\par
+    bit [31:0] reference_data;\par
+    bit [31:0] data;\par
+\par
+    check_mem = 1;\par
+\par
+    void'(ref_mem.first(min_addr));\par
+    void'(ref_mem.last (max_addr));\par
+\par
+    `ifdef KWS_TEST\par
+      max_addr = max_addr - 32'h4;\par
+    `endif\par
+    \par
+    for(bit [31:0] addr = min_addr; addr <= max_addr; addr += 32'h4)\par
+    begin\par
+      reference_data = ref_mem[addr];\par
+\par
+      effective_addr = addr;\par
+\par
+      if($test$plusargs("BOUNDARY_CROSS_SRAM")) begin \par
+        if(addr >= 32'h0240_0000) begin\par
+          mem_name = "SRAM1"; \par
+          actual_data    = bkdr_rd_32bit_data(effective_addr);\par
+        end else begin\par
+          actual_data    = bkdr_rd_32bit_data(effective_addr);\par
+        end\par
+      end \par
+      if ($test$plusargs("SRAM_DTCM_MIRROR"))\par
+      begin \par
+        if(addr >= 32'h0380_0000) begin\par
+          effective_addr = 32'h5080_0000 + (addr - 32'h0380_0000);\par
+          mem_name = "DTCM_ES0"; \par
+          actual_data    = bkdr_rd_32bit_data(effective_addr);\par
+        end else begin\par
+          actual_data    = bkdr_rd_32bit_data(effective_addr);\par
+        end\par
+      end\par
+      else begin\par
+          actual_data = bkdr_rd_32bit_data(effective_addr);\par
+      end \par
+        \par
+      if(actual_data != reference_data) begin\par
+        `uvm_error(\par
+          "zaphod_tasks", \par
+          $sformatf(\par
+            "DATA MISMATCH: ADDR - 32'h%X | REF MEM DATA - 32'h%X | ACTUAL %s DATA - 32'h%X", \par
+            addr, \par
+            reference_data, \par
+            mem_name,\par
+            actual_data\par
+          )\par
+        )\par
+        check_mem = 0;\par
+      end\par
+      else begin\par
+        `uvm_info(\par
+          "zaphod_tasks", \par
+          $sformatf(\par
+            "DATA MATCH: ADDR - 32'h%X | REF MEM DATA - 32'h%X | ACTUAL %s DATA - 32'h%X", \par
+            addr, \par
+            reference_data, \par
+            mem_name,\par
+            actual_data\par
+          ),\par
+          UVM_HIGH\par
+        )\par
+      end\par
+    end\par
+    ref_mem.delete();\par
+  endtask : zaphod_check_mem\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual task wait_cycles (input logic clk_sig = `TB_TOP.clk, int no_of_cycles = 2);\par
+    `uvm_info(get_type_name(),$sformatf("Wait for %0d clk cycles",no_of_cycles), UVM_DEBUG)\par
+    repeat (no_of_cycles) begin \par
+      @(posedge clk_sig);\par
+    end\par
+  endtask\par
+  \par
+endclass : eagle_zaphod_base_seq\par
+\par
+class eagle_zaphod_base_test extends base_test;\par
+\par
+  `uvm_component_utils(eagle_zaphod_base_test)\par
+\par
+  eagle_zaphod_cfg_constraint   zaphod_cfg;\par
+  eagle_zaphod_base_seq         zaphod_seq;\par
+  uvm_table_printer             printer;\par
+\par
+  //--------------------------------------------------------------------------\par
+  // Method      : new\par
+  // Description : \par
+  //-------------------------------------------------------------------------- \par
+  function new(string name = "eagle_zaphod_base_test", uvm_component parent = null);\par
+    super.new(name, parent);\par
+    printer = new();\par
+  endfunction : new\par
+\par
+  //--------------------------------------------------------------------------\par
+  // Method      : build_phase\par
+  // Description : This method is used for creating different components & objects\par
+  //-------------------------------------------------------------------------- \par
+  virtual function void build_phase(uvm_phase phase);\par
+    super.build_phase(phase);\par
+    `uvm_info("eagle_zaphod_base_test", $sformatf("in build_phase"), UVM_LOW)\par
+\par
+\par
+    zaphod_cfg = eagle_zaphod_cfg_constraint::type_id::create("zaphod_cfg",this);\par
+    uvm_config_db#(eagle_zaphod_cfg_constraint)::set(uvm_root::get(), "*", "eagle_zaphod_cfg_constraint", zaphod_cfg);\par
+\par
+    zaphod_seq = eagle_zaphod_base_seq::type_id::create( .name( "zaphod_seq" ), .contxt( get_full_name()));\par
+\par
+    // Add any TOP TB customization here\par
+    tb_cfg.amba_vip_en                    = 1;\par
+    tb_cfg.amba_sys_env_en[sh_mem_ss_idx] = 1;\par
+    tb_cfg.zaphod_mstr_is_active          = 1; \par
+    tb_cfg.zaphod_en                      = 1;\par
+  endfunction : build_phase\par
+\par
+  //--------------------------------------------------------------------------\par
+  // Method      : end_of_elaboration_phase\par
+  // Description : \par
+  //-------------------------------------------------------------------------- \par
+  virtual function void end_of_elaboration_phase(uvm_phase phase);\par
+    super.end_of_elaboration_phase(phase);\par
+    uvm_top.print_topology(printer);\par
+  endfunction : end_of_elaboration_phase\par
+  \par
+  //--------------------------------------------------------------------------\par
+  // Method      : run_phase\par
+  // Description : \par
+  //-------------------------------------------------------------------------- \par
+  virtual task run_phase(uvm_phase phase);\par
+    super.run_phase(phase);\par
+  endtask : run_phase\par
+\par
+endclass : eagle_zaphod_base_test\par
+\par
+`endif // ZAPHOD_BASE_TEST_SV\par
+}
+ 
