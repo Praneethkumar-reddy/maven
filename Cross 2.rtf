@@ -1,0 +1,254 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sl240\slmult1\f0\fs16\lang9 //-----------------------------------------------------------------------------\par
+// FILENAME   : eagle_zaphod_kws_test.sv\par
+// DESCRIPTION:\par
+//-----------------------------------------------------------------------------\par
+\par
+class eagle_zaphod_config_kws_seq extends eagle_zaphod_base_seq; \par
+   \par
+  `uvm_object_utils(eagle_zaphod_config_kws_seq) \par
+ \par
+  ////////////////////////////////////////////////////////////////////////////////////\par
+  // [1]: \par
+  ////////////////////////////////////////////////////////////////////////////////////\par
+  bit[31:0]    read_data;\par
+  bit[1:0]     qconfig; \par
+  bit[15:0]    regioncfg;\par
+  bit check_mem; \par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  function new (string name = "eagle_zaphod_config_kws_seq"); \par
+    super.new(name); \par
+  endfunction : new \par
+\par
+  ////////////////////////////////////////////////////////////////////////////////////\par
+  //--------------------------------------------------------------------------\par
+  // Method      : pre_body\par
+  // Description : \par
+  //-------------------------------------------------------------------------- \par
+  virtual task pre_body();\par
+    super.pre_body();\par
+    // Constrained Randomization\par
+      if (!zaphod_cfg.randomize())\par
+        `uvm_fatal(get_name,$sformatf("zaphod_cfg randomization failed"))\par
+      else \par
+        `uvm_info(get_name(),$sformatf("zaphod_cfg values \\n%s",zaphod_cfg.sprint()), UVM_NONE)\par
+\par
+    // Assign config values to this class variables\par
+    zaphod_test_path             = zaphod_cfg.zaphod_test_path;\par
+    ip_kws_file                  = zaphod_cfg.ip_kws_filename;\par
+    ip_hex_file                  = zaphod_cfg.ip_hex_filename;\par
+    ref_op_hex_file              = zaphod_cfg.ref_op_hex_filename;\par
+    scratch_buffer_base_addr     = zaphod_cfg.scratch_buffer_base_addr; \par
+    cmd_stream_base_addr         = zaphod_cfg.cmd_stream_base_addr; \par
+    weight_base_addr             = zaphod_cfg.weight_base_addr; \par
+    input_data_stream_base_addr  = zaphod_cfg.input_data_stream_base_addr; \par
+    output_data_stream_base_addr = zaphod_cfg.output_data_stream_base_addr;\par
+    // Set Bit 31: SRAM1 acc, for required tests\par
+    if ($test$plusargs("SHMEM_CTRL_SRAM1_ACC")) begin\par
+      nic_remap_reg_if.nic_remap[31] = 1'b1; //h8000_0000;\par
+    end\par
+  endtask : pre_body\par
+\par
+  ////////////////////////////////////////////////////////////////////////////////////\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual task body();\par
+    super.body();\par
+\par
+    `uvm_info(get_type_name()," ##################################################",UVM_LOW)\par
+    `uvm_info(get_type_name()," Step 1: After reset release, Load hex file",UVM_LOW)\par
+    `uvm_info(get_type_name()," ##################################################",UVM_LOW)\par
+\par
+    `uvm_info(get_type_name(),$sformatf("Weight Base Address: 0x%0h", weight_base_addr), UVM_LOW)\par
+\par
+\par
+ \par
+     // Load weight stream from specified mem address\par
+    zaphod_load_memory(\{zaphod_test_path, "/", ip_kws_file\}, WEIGHT_STREAM_e, weight_base_addr - 32'h2D0);\par
+    // Load cmd stream from specified mem address\par
+    `uvm_info(get_type_name(),$sformatf("Command Stream Base Address: 0x%0h", cmd_stream_base_addr), UVM_LOW)\par
+    zaphod_load_memory(\{zaphod_test_path, "/", ip_kws_file\}, CMD_STREAM_e, cmd_stream_base_addr);\par
+    // Load input-data stream from specified mem address\par
+    `uvm_info(get_type_name(),$sformatf("Input Data Stream Base Address: 0x%0h", input_data_stream_base_addr), UVM_LOW)\par
+    zaphod_load_memory(\{zaphod_test_path, "/", ip_hex_file\}, INPUT_DATA_STREAM_e, input_data_stream_base_addr);\par
+    // Store Ref Output in local array\par
+       `uvm_info(get_type_name(),$sformatf("Output Data Stream Base Address: 0x%0h", output_data_stream_base_addr), UVM_LOW)\par
+    zaphod_load_memory(\{zaphod_test_path, "/", ref_op_hex_file\}, REF_OUTPUT_STREAM_e, output_data_stream_base_addr);\par
+    \par
+    `uvm_info(get_type_name()," ##################################################",UVM_LOW)\par
+    `uvm_info(get_type_name()," Step 2: Perform all Zaphod register configurations",UVM_LOW)\par
+    `uvm_info(get_type_name()," ##################################################",UVM_LOW)\par
+\par
+   // zaphod_reg_write( .reg_offset(32'h140),.write_data(32'hFFFFFFFF) );\par
+    // PMCR write: PMU Control Register: bit[0] cnt_en = 1'b1\par
+    zaphod_reg_write( .reg_offset(32'h1180),.write_data(32'h1) );\par
+    \par
+    // POWER_CTRL write: bit[5:0] mac_step_cycles = 2, which ramps up or ramps down power\par
+    // to avoid sudden changes in power requirement. actual value = 4 ** n = 4 ** 2 = 16 mac_step_cycles\par
+    zaphod_reg_write( .reg_offset(32'h38),.write_data(32'h2) );\par
+\par
+    // AXI_SRAM write: Fields: Max Write, Max Reads, Max Beats\par
+    zaphod_reg_write( .reg_offset(32'h50),.write_data(32'h00021F3F) );\par
+    // AXI_EXT: Fields: Max Write, Max Reads, Max Beats\par
+    zaphod_reg_write( .reg_offset(32'h54),.write_data(32'h00021F3F) );\par
+    \par
+    // MEM_ATTR0: bit[7:4]: memtype = 4'h2: Normal non-cacheable non-bufferable\par
+    //            bit[2]: axi_port = 0, i.e. SRAM AXI\par
+    zaphod_reg_write( .reg_offset(32'h40),.write_data(32'h20) );\par
+    // MEM_ATTR1: bit[7:4]: memtype = 4'h2: Normal non-cacheable non-bufferable\par
+    //            bit[2]: axi_port = 1, i.e. EXT AXI \par
+    zaphod_reg_write( .reg_offset(32'h44),.write_data(32'h24) );\par
+    \par
+    // QBASE write(32'h10,32'h14): Command Stream Base Address\par
+    zaphod_reg_write( .reg_offset(32'h10),.write_data(cmd_stream_base_addr) );\par
+    zaphod_reg_write( .reg_offset(32'h14),.write_data(32'h0) );\par
+\par
+    // QCONFIG write: AXI configuration for the command stream. Same encoding as REGIONCFG\par
+    //                cmd_region0 = 0, for SRAM AXI, cmd_region0 = 1, for EXT AXI\par
+    if ( (cmd_stream_base_addr >= 32'h10000000) && ((cmd_stream_base_addr & 32'hf0000000) != 32'h50000000) )\par
+      qconfig |= 1;\par
+    zaphod_reg_write( .reg_offset(32'h1C),.write_data(qconfig) );\par
+\par
+    // QSIZE: command stream size in bytes. Multiple of four in the range 0-16MB.\par
+    zaphod_reg_write( .reg_offset(32'h20),.write_data(zaphod_cfg.workload_size[CMD_STREAM_e]-32'h3c) );\par
+    \par
+    // -------------------------------------------------------------------\par
+    // BASEP_ARRAY[0..7] register array: AXI base address of the respective region number 0 - 7\par
+    // Region-0 - Weights\par
+    zaphod_reg_write( .reg_offset(32'h80),.write_data(weight_base_addr) );\par
+    zaphod_reg_write( .reg_offset(32'h84),.write_data(32'h0) );\par
+    if ( (weight_base_addr >= 32'h10000000) && ((weight_base_addr & 32'hf0000000) != 32'h50000000) )\par
+      regioncfg |= (1 << 0);\par
+\par
+    //// Region-1 - Arena\par
+    zaphod_reg_write( .reg_offset(32'h88),.write_data(scratch_buffer_base_addr) );\par
+    zaphod_reg_write( .reg_offset(32'h8C),.write_data(32'h0) );\par
+    if ( (scratch_buffer_base_addr >= 32'h10000000) && ((scratch_buffer_base_addr & 32'hf0000000) != 32'h50000000) )\par
+      regioncfg |= (1 << 2);\par
+\par
+    //// Region-2 - Scratch Buffer\par
+    zaphod_reg_write( .reg_offset(32'h90),.write_data(scratch_buffer_base_addr) );\par
+    zaphod_reg_write( .reg_offset(32'h94),.write_data(32'h0) );\par
+    if ( (scratch_buffer_base_addr >= 32'h10000000) && ((scratch_buffer_base_addr & 32'hf0000000) != 32'h50000000) )\par
+      regioncfg |= (1 << 4);\par
+\par
+    // Region-3 - Input Data Stream\par
+    zaphod_reg_write( .reg_offset(32'h98),.write_data(input_data_stream_base_addr) );\par
+    zaphod_reg_write( .reg_offset(32'h9C),.write_data(32'h0) );\par
+        if ( (input_data_stream_base_addr >= 32'h10000000) && ((input_data_stream_base_addr & 32'hf0000000) != 32'h50000000) )\par
+      regioncfg |= (1 << 6);\par
+\par
+    // Region-4 - Output Data Stream\par
+    zaphod_reg_write( .reg_offset(32'hA0),.write_data(output_data_stream_base_addr) );\par
+    zaphod_reg_write( .reg_offset(32'hA4),.write_data(32'h0) );\par
+        if ( (output_data_stream_base_addr >= 32'h10000000) && ((output_data_stream_base_addr & 32'hf0000000) != 32'h50000000) )\par
+      regioncfg |= (1 << 8);\par
+\par
+    // REGIONCFG: Specify which MEM_ATTR register applies to each region.\par
+    //            region = 0, for SRAM AXI, region = 1, for EXT AXI  \par
+    zaphod_reg_write( .reg_offset(32'h3C),.write_data(regioncfg) );\par
+\par
+    // -------------------------------------------------------------------\par
+\par
+    `uvm_info(get_type_name()," ##################################################",UVM_LOW)\par
+    `uvm_info(get_type_name()," Step 3: Start Zaphod run and execute CMD stream",UVM_LOW)\par
+    `uvm_info(get_type_name()," ##################################################",UVM_LOW)\par
+    // CMD register: \par
+    // Bit[0]: Transistion to run state and start executing cmd stream\par
+    // Bit[3:2]: Eable Power & Clock Q interface for autogating operation\par
+    zaphod_reg_write( .reg_offset(32'h8),.write_data(32'hD) );\par
+    //--------------------------------------------------------------------\par
+    //zaphod performance configurations\par
+    if($test$plusargs("ZAPHOD_PERF_CHK"))begin\par
+      super.regioncfg = regioncfg;\par
+      zaphod_perf_config();\par
+    end\par
+\par
+    `uvm_info(get_type_name()," ##################################################",UVM_LOW)\par
+    `uvm_info(get_type_name()," Step 4: Execute ISR",UVM_LOW)\par
+    `uvm_info(get_type_name()," ##################################################",UVM_LOW)\par
+    // ISR call with default status reg as expected value\par
+    zaphod_irq_routine(zaphod_cfg.expected_irq_status);\par
+    \par
+    //zaphod performance check\par
+    if($test$plusargs("ZAPHOD_PERF_CHK"))begin\par
+      zaphod_perf_check();\par
+    end\par
+\par
+    // Resetting this back to output data memory to be checked for data integrity\par
+    mem_name = zaphod_cfg.workload_mem_name[REF_OUTPUT_STREAM_e];\par
+    \par
+    if (zaphod_cfg.data_comp_dis == 1'b1) begin\par
+      `uvm_info(get_type_name(), "DATA COMPARISON IS DISABLED !!!", UVM_LOW)\par
+    end\par
+    else begin\par
+      `uvm_info(get_type_name(), $sformatf("Output mem_name %s for Data comparison",mem_name), UVM_LOW)\par
+      // By default data comparison is ON\par
+      zaphod_check_mem(check_mem);\par
+      if(!check_mem) begin\par
+        `uvm_error(get_type_name(), "FAIL: OUTPUT STREAM DATA MISMATCH!!!")\par
+      end else begin\par
+        `uvm_info(get_type_name(), "PASS: OUTPUT STREAM DATA MATCHED WITH REF DATA !!!", UVM_LOW)\par
+      end\par
+    end\par
+  endtask: body\par
+\par
+endclass : eagle_zaphod_config_kws_seq\par
+\par
+class eagle_zaphod_kws_test extends eagle_zaphod_base_test;\par
+\par
+  `uvm_component_utils(eagle_zaphod_kws_test)\par
+\par
+  eagle_zaphod_config_kws_seq test_seq;\par
+  eagle_zaphod_ospi_cfg_seq   zaphod_ospi_cfg_seq;\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  function new(string name = "eagle_zaphod_kws_test", uvm_component parent = null);\par
+    super.new(name, parent);\par
+  endfunction : new\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual function void build_phase(uvm_phase phase);\par
+    super.build_phase(phase);\par
+    test_seq = eagle_zaphod_config_kws_seq::type_id::create("test_seq");\par
+    zaphod_ospi_cfg_seq    = eagle_zaphod_ospi_cfg_seq::type_id::create("zaphod_ospi_cfg_seq");\par
+  endfunction : build_phase\par
+\par
+  // -------------------------------------\par
+  // Method:\par
+  // Description:\par
+  // -------------------------------------\par
+  virtual task run_phase(uvm_phase phase);\par
+    phase.raise_objection(this);\par
+\par
+    `uvm_info(get_full_name()," ********* This is eagle_zaphod_kws_test running ******** ",UVM_LOW)\par
+    if($test$plusargs("OSPI_KWS"))begin\par
+      zaphod_ospi_cfg_seq.v_sqr = env.v_sequencer; \par
+      zaphod_ospi_cfg_seq.start(null);\par
+    end\par
+    test_seq.v_sqr = env.v_sequencer; \par
+    test_seq.env = env; \par
+    test_seq.start(null); \par
+    //test_seq.start( .sequencer( env.v_sequencer ) );\par
+\par
+    #100; \par
+    `uvm_info("eagle_zaphod_kws_test", $sformatf("UVM Test Completed"), UVM_LOW)\par
+\par
+    phase.drop_objection(this); \par
+\par
+  endtask : run_phase\par
+\par
+endclass : eagle_zaphod_kws_test\par
+}
+ 
