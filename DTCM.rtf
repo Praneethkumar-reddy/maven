@@ -1,0 +1,556 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sl240\slmult1\f0\fs16\lang9\par
+class eagle_zaphod_dtcm_test_seq extends eagle_zaphod_base_seq; \par
+   \par
+   `uvm_object_utils(eagle_zaphod_dtcm_test_seq)  \par
+  \par
+   function new (string name = "eagle_zaphod_dtcm_test_seq"); \par
+      super.new(name); \par
+   endfunction : new \par
+\par
+   ////////////////////////////////////////////////////////////////////////////////////\par
+   // [1]: Define any used data types or any special tasks/functions\par
+   ////////////////////////////////////////////////////////////////////////////////////\par
+\par
+   bit[31:0] rd_data;\par
+   bit[31:0] regioncfg = 0, qconfig = 0;  \par
+   ////////////////////////////////////////////////////////////////////////////////////\par
+   virtual task body();\par
+      super.body();\par
+      ////////////////////////////////////////////////////////////////////////////////////\par
+      // [2]: Write the testcase sequence body\par
+      ////////////////////////////////////////////////////////////////////////////////////\par
+     // force `MODEM_SS_TOP.i_yamin_cpu_wait = 1; // halt the cpu from accessing the TCMs till they are initialized\par
+      WAIT_RESET;\par
+      \par
+      DELAY(1000);\par
+    \par
+\par
+      `uvm_info(get_full_name()," ********* This is eagle_zaphod_dtcm_test_seq running ******** ",UVM_LOW);\par
+\par
+  \par
+  #4000;\par
+   force tb_top.u_sh_mem.u_sse700_f0_shared_mem.u_zaphod.PPROT[2:0] = 3'b1;\par
+    force tb_top.u_sh_mem.u_sse700_f0_shared_mem.u_zaphod.PSTRB[3:0] =4'hF;\par
+  \par
+      \par
+ `uvm_info(get_full_name(), $sformatf("Inside the sequence mem name %s wb %x sb %x ip %x op %x \\n",test_mem_name,weight_base_addr_val,scratch_buffer_base_addr_val,input_data_stream_base_addr_val,output_data_stream_base_addr_val), UVM_HIGH)\par
+      \par
+   //\par
+// Write to a reserved region\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h0140),.wr_data(32'hffffffff) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h1180),.wr_data(32'h1) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h38),.wr_data(32'h2) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h50),.wr_data(32'h00021F3F) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h54),.wr_data(32'h00021F3F) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h40),.wr_data(32'h20) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h44),.wr_data(32'h24) );\par
+  //APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h10),.wr_data(32'h02001990) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h10),.wr_data(input_data_stream_base_addr_val-'h110) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h14),.wr_data(32'h0) );\par
+  if (input_data_stream_base_addr_val - 'h110 >= 'h10000000 && ((input_data_stream_base_addr_val - 'h110) & 'hf0000000) != 'h50000000) begin\par
+     qconfig |= 1;\par
+\tab  end\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h1C),.wr_data(qconfig) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h20),.wr_data(32'h110) );\par
+  $display("write on20th adress polling starts");\par
+  \par
+  //APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h80),.wr_data(32'h02002EA0) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h80),.wr_data(weight_base_addr_val) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h84),.wr_data(32'h0) );\par
+  if (weight_base_addr_val >= 'h10000000 && (weight_base_addr_val & 'hf0000000) != 'h50000000) begin\par
+     regioncfg |= 1 << 0;\par
+  end\par
+  //APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h88),.wr_data(32'h02000000) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h88),.wr_data(scratch_buffer_base_addr_val) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h8C),.wr_data(32'h0) );\par
+  if (scratch_buffer_base_addr_val >= 'h10000000 && (scratch_buffer_base_addr_val & 'hf0000000) != 'h50000000) begin\par
+     regioncfg |= 1 << 2;\par
+  end\par
+  //APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h90),.wr_data(32'h02001AA0) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h90),.wr_data(input_data_stream_base_addr_val) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h94),.wr_data(32'h0) );\par
+  if (input_data_stream_base_addr_val >= 'h10000000 && (input_data_stream_base_addr_val & 'hf0000000) != 'h50000000) begin\par
+     regioncfg |= 1 << 4;\par
+\tab  end\par
+  //APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h98),.wr_data(32'h02020000) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h98),.wr_data(output_data_stream_base_addr_val) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h9C),.wr_data(32'h0) );\par
+   if (output_data_stream_base_addr_val >= 'h10000000 && (output_data_stream_base_addr_val & 'hf0000000) != 'h50000000) begin\par
+     regioncfg |= 1 << 6;\par
+  end\par
+\tab\par
+  if($test$plusargs("ZAPHOD_PERF_CHK")) begin\par
+         super.regioncfg = regioncfg;\par
+         zaphod_perf_config();\par
+  end\par
+\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h3C),.wr_data(regioncfg) );\par
+  APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h8),.wr_data(32'hD) );\par
+\par
+ //#2000;\par
+ @(posedge `SH_MEM_HIER.zaphod_irq);\par
+ APB_MASTER_RD_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.rd_address(32'h04),.rd_data(rd_data) );\par
+ if (rd_data != 32'h22) begin\par
+   `uvm_error(get_type_name(), $sformatf("Status register MISMATCH: Actual data = 32'h%0h",rd_data,))\par
+ end\par
+ else begin \par
+   `uvm_info(get_type_name(),$sformatf("Status register MATCH"), UVM_LOW)\par
+   APB_MASTER_WR_SEQ(.ss_idx(sh_mem_ss_idx),.mstr_idx(zaphod_mstr_apb_idx),.wr_address(32'h8),.wr_data(32'hE) );\par
+\par
+   if($test$plusargs("ZAPHOD_PERF_CHK")) begin\par
+         zaphod_perf_check();\par
+   end\par
+\par
+ end\par
+  \par
+endtask: body\par
+endclass\par
+\par
+\par
+\par
+class zaphod_base_test extends eagle_zaphod_base_test;\par
+\par
+  `uvm_component_utils(zaphod_base_test)\par
+   localparam MAX_LINE_LENGTH = 256;\par
+\par
+  bit [31:0] base_addr;\par
+  bit [31:0] ref_mem [bit [31:0]];\par
+  string mem_name;\par
+\par
+  function new(string name = "zaphod_base_test", uvm_component parent = null);\par
+    super.new(name, parent);\par
+  endfunction : new\par
+\par
+  task zaphod_dtcm_write_memory(bit [31:0] addr, bit[3:0] strb, bit[31:0] data, bit mark_as_written);\par
+      bit [255:0] wr_data;\par
+      bit [255:0] rd_data;\par
+    `uvm_info("zaphod_write_memory", $sformatf("addr = %x | strb = %x | data = %x",addr, strb, data), UVM_NONE);\par
+    data = \{\par
+      \{8\{strb[3]\}\}, \par
+      \{8\{strb[2]\}\}, \par
+      \{8\{strb[1]\}\}, \par
+      \{8\{strb[0]\}\}\par
+      \} & data;\par
+    addr = base_addr + addr;\par
+\par
+\tab if($test$plusargs("SRAM_DTCM_MIRROR")) begin \par
+      if(mem_name != "REF")begin\par
+        if(addr >= 32'h0380_0000 ) begin\par
+          mem_name = "DTCM_EXTSYS0"; \par
+        end\par
+        else begin\par
+          mem_name = "SRAM_STRIPED";\par
+        end\par
+      end\par
+    end\par
+\par
+\tab if(addr[31:23] == 'h7 || addr[31:23] == 'h5)begin\par
+\tab\tab addr[31:23] = 'hA1;\par
+       if(mem_name != "REF")begin\par
+        mem_name = "DTCM_EXTSYS0";\par
+\tab\tab end\par
+    end\par
+\par
+\tab if(mem_name == "SRAM_STRIPED") begin\par
+      bit [31:0] wmask;\par
+\par
+      `uvm_info("zaphod_write_memory", $sformatf("addr = %x | strb = %x | data = %x mem name %s",addr, strb, data,mem_name), UVM_NONE)\par
+\par
+      wmask = strb << (addr % 32);\par
+      wmask = ~wmask;\par
+      `uvm_info( "zaphod_write_memory",$sformatf("wmask = %x", wmask), UVM_HIGH)\par
+\par
+      bkdr_rd_mem(addr & (~ 32'h1f), rd_data, mem_name, 32);\par
+\par
+      `uvm_info( "zaphod_Write_memory",$sformatf("before rd_data = %x", rd_data), UVM_HIGH)\par
+\par
+      rd_data &= \{\par
+        \{8\{wmask[31]\}\},\par
+        \{8\{wmask[30]\}\},\par
+        \{8\{wmask[29]\}\},\par
+        \{8\{wmask[28]\}\},\par
+        \{8\{wmask[27]\}\},\par
+        \{8\{wmask[26]\}\},\par
+        \{8\{wmask[25]\}\},\par
+        \{8\{wmask[24]\}\},\par
+        \{8\{wmask[23]\}\},\par
+        \{8\{wmask[22]\}\},\par
+        \{8\{wmask[21]\}\},\par
+        \{8\{wmask[20]\}\},\par
+        \{8\{wmask[19]\}\},\par
+        \{8\{wmask[18]\}\},\par
+        \{8\{wmask[17]\}\},\par
+        \{8\{wmask[16]\}\},\par
+        \{8\{wmask[15]\}\},\par
+        \{8\{wmask[14]\}\},\par
+        \{8\{wmask[13]\}\},\par
+        \{8\{wmask[12]\}\},\par
+        \{8\{wmask[11]\}\},\par
+        \{8\{wmask[10]\}\},\par
+        \{8\{wmask[09]\}\},\par
+        \{8\{wmask[08]\}\},\par
+        \{8\{wmask[07]\}\},\par
+        \{8\{wmask[06]\}\},\par
+        \{8\{wmask[05]\}\},\par
+        \{8\{wmask[04]\}\},\par
+        \{8\{wmask[03]\}\},\par
+        \{8\{wmask[02]\}\},\par
+        \{8\{wmask[01]\}\},\par
+        \{8\{wmask[00]\}\}\par
+        \};\par
+      `uvm_info("zaphod_write_memory", $sformatf("middle rd_data = %x", rd_data), UVM_HIGH)\par
+      rd_data |= data << ((addr % 32) * 8);\par
+      `uvm_info("zaphod_write_memory", $sformatf("last rd_data = %x", rd_data), UVM_HIGH)\par
+      bkdr_wr_mem(addr & (~ 32'h1f), rd_data, mem_name, 32);\par
+    end\par
+\par
+\tab else if(mem_name == "REF") begin\par
+        `uvm_info("striped_bkdr_rd",$sformatf(" address %x  data %x\\n", addr, data),UVM_NONE)\par
+      ref_mem[addr] = data;\par
+    end else begin\par
+    wr_data = data;\par
+    //addr = addr & (~ 32'h03);\par
+    //addr = addr;\par
+     for(int i = 0; i < 4; i++) begin\par
+         env.amba_system_env[sh_mem_ss_idx].axi_system[0].slave[tcm_slv_idx].write_byte((addr+i), wr_data[i*8 +: 8]);\par
+        `uvm_info("tcm_bkdr_wr",$sformatf("data at address %x %x\\n", addr+i, wr_data[i*8 +: 8]),UVM_HIGH);\par
+     end\par
+\tab  end\par
+   endtask\par
+      \par
+\par
+  task  zaphod_dtcm_bkdr_rd_32bit_data(bit [31:0] addr,output bit [31:0]rd_data);\par
+    //bit [255:0] rd_data;\par
+    rd_data = 0;\par
+\tab //addr = addr & (~ 32'h03);\par
+\tab //addr = addr;\par
+     for(int i = 0; i < 4; i++) begin\par
+         env.amba_system_env[sh_mem_ss_idx].axi_system[0].slave[tcm_slv_idx].read_byte((addr+i), rd_data[i*8 +: 8]);\par
+        `uvm_info("tcm_bkdr_rd",$sformatf("data at address %x %x\\n", addr+i, rd_data[i*8 +: 8]),UVM_NONE)\par
+\tab  end\par
+\tab  \par
+  endtask \par
+  function bit [31:0] striping_bkdr_rd_32bit_data(bit [31:0] addr);\par
+    bit [255:0] rd_data;\par
+    rd_data = 0;\par
+\par
+        `uvm_info("striped_bkdr_rd",$sformatf("inside function \\n"),UVM_HIGH)\par
+    if(mem_name == "SRAM_STRIPED") begin\par
+      bkdr_rd_mem(addr & (~ 32'h1f), rd_data, mem_name, 32);\par
+      addr = addr & 32'h1f;                       // addr = addr % 32;\par
+      rd_data = rd_data >> (addr * 8);\par
+      rd_data = rd_data & 256'hFFFF_FFFF;\par
+\par
+        `uvm_info("striped_bkdr_rd",$sformatf(" address %x  data %x\\n", addr, rd_data),UVM_HIGH)\par
+    end\par
+\tab return rd_data;\par
+ endfunction\par
+\par
+task zaphod_dtcm_check_mem(output bit dtcm_check_mem);\par
+   bit [31:0] min_addr;\par
+   bit [31:0] max_addr;\par
+   bit [31:0] effective_addr;\par
+   bit [31:0] actual_data;\par
+   bit [31:0] reference_data;\par
+   bit [31:0] data;\par
+   dtcm_check_mem = 1;\par
+\par
+   void'(ref_mem.first(min_addr));\par
+   void'(ref_mem.last (max_addr));\par
+\par
+   if($test$plusargs("SRAM_DTCM_MIRROR")) begin\par
+       if(max_addr[31:23] == 'hA1)begin\par
+        max_addr = 'h038000E0;\par
+\tab    end\par
+\tab    end\par
+\par
+   for(bit [31:0] addr = min_addr; addr <= max_addr; addr += 32'h4) begin\par
+\par
+\tab  \par
+\tab  effective_addr = addr;\par
+      if($test$plusargs("SRAM_DTCM_MIRROR")) begin \par
+       if(addr >= 32'h0380_0000) begin\par
+          effective_addr = 32'h5080_0000 + (addr - 32'h0380_0000);\par
+          mem_name = "DTCM_EXTSYS0";\par
+        `uvm_info("dtcm_bkdr_rd",$sformatf("effective_addr %x\\n",effective_addr),UVM_NONE)\par
+\tab\tab   zaphod_dtcm_bkdr_rd_32bit_data(effective_addr,data);\par
+\tab\tab   actual_data    = data;\par
+\tab\tab   ///addr = effective_addr;\par
+       end else begin\tab      \par
+        `uvm_info("striped_bkdr_rd",$sformatf("At function calling1 \\n"),UVM_NONE)\par
+          actual_data    = striping_bkdr_rd_32bit_data(effective_addr);\par
+\tab\tab   end\par
+     end\par
+     else begin \par
+          zaphod_dtcm_bkdr_rd_32bit_data(effective_addr,data);\par
+\tab\tab   actual_data    = data;\par
+        `uvm_info("dtcm_bkdr_rd",$sformatf("At function calling2 \\n"),UVM_NONE)\par
+     end\par
+\par
+     reference_data = ref_mem[effective_addr];\par
+\par
+     if(actual_data != reference_data) begin\par
+       `uvm_error(\par
+         "zaphos_tasks", \par
+         $sformatf(\par
+           "DATA MISMATCH: ADDR - 32'h%X | REF MEM DATA - 32'h%X | ACTUAL %s DATA - 32'h%X", \par
+           effective_addr, \par
+           reference_data, \par
+           mem_name,\par
+           actual_data\par
+         )\par
+       )\par
+       dtcm_check_mem = 0;\par
+     end\par
+     else begin\par
+       `uvm_info(\par
+         "zaphod_tasks", \par
+         $sformatf(\par
+           "DATA MATCH: ADDR - 32'h%X | REF MEM DATA - 32'h%X | ACTUAL %s DATA - 32'h%X", \par
+           effective_addr, \par
+           reference_data, \par
+           mem_name,\par
+           actual_data\par
+         ),\par
+         UVM_NONE\par
+       )\par
+     end\par
+   end\par
+   ref_mem.delete();\par
+ endtask\par
+\par
+ task zaphod_dtcm_load_memory;\par
+   input [MAX_LINE_LENGTH*8:1]  filename;\par
+   input [48:0]                 offset;\par
+   output                       error;\par
+\par
+   reg [MAX_LINE_LENGTH*8:1]    line;\par
+   reg [8*8:1]                  str, stmp[3:0];\par
+   reg [31:0]                   tmp;\par
+   reg [3:0]                    we;\par
+   integer                      i, c, r, lineno, file;\par
+   reg [48:0]                   address;\par
+   reg [48:0]                   min_addr, max_addr;\par
+   begin\par
+     tmp = 32'd0;\par
+     file = $fopen(filename, "r");\par
+     if(!file) begin\par
+       error = 1'b1;\par
+       $display("ERROR: cannot open %0s for reading!", filename);\par
+     end\par
+     else begin\par
+       error = 1'b0;\par
+       lineno = 1;\par
+       line = 1'b0;\par
+       min_addr = \{49\{1'b1\}\};\par
+       max_addr = \{49\{1'b0\}\};\par
+       c = $fgets(line, file);\par
+\par
+       while(c>0 && !error) begin\par
+         r = $sscanf(line, " %x: %s %s %s %s", address, stmp[0], stmp[1], stmp[2], stmp[3]);\par
+\par
+         if(r==5) begin\par
+           for(i=0; i<4 && !error; i=i+1) begin\par
+             str = stmp[i];\par
+             we = 4'b1111;\par
+\par
+             if(str['h10:'h01]=="..") begin\par
+               str['h10:'h01]="zz";\par
+               we[0] = 1'b0;\par
+             end\par
+             if(str['h20:'h11]=="..") begin\par
+               str['h20:'h11]="zz";\par
+               we[1] = 1'b0;\par
+             end\par
+             if(str['h30:'h21]=="..") begin\par
+               str['h30:'h21]="zz";\par
+               we[2] = 1'b0;\par
+             end\par
+             if(str['h40:'h31]=="..") begin\par
+               str['h40:'h31]="zz";\par
+               we[3] = 1'b0;\par
+             end\par
+\par
+             r = $sscanf(str, "%x", tmp);\par
+             if(r==1) begin\par
+               zaphod_dtcm_write_memory(address+offset, we, tmp, 1'b0);\par
+               if(address+offset < min_addr)\par
+                 min_addr = address + offset;\par
+               if(address+offset > max_addr)\par
+                 max_addr = address + offset;\par
+             end\par
+             else begin\par
+               error = 1'b1;\par
+               $display("ERROR: parse error at line %0d!", lineno);\par
+             end\par
+             address = address + 4;\par
+           end\par
+         end\par
+         else if(r>0) begin\par
+           error = 1'b1;\par
+           $display("ERROR: parse error at line %0d!", lineno);\par
+         end\par
+\par
+         c = $fgets(line, file);\par
+         lineno = lineno + 1;\par
+       end\par
+\par
+       if(min_addr < max_addr)\par
+         $display("... wrote from %X to %X", min_addr, max_addr);\par
+       else\par
+         $display("... wrote nothing!");\par
+\par
+       $fclose(file);\par
+     end\par
+   end\par
+ endtask\par
+\par
+  task zaphod_dtcm_load_mem(string file_path, bit[31:0] offset_addr, int no_of_args);\par
+    bit err;\par
+    if (no_of_args == 1) begin\par
+      $display("Loading memory from file %0s ...", file_path);\par
+      zaphod_dtcm_load_memory(file_path, 0, err);\par
+    end\par
+    else if (no_of_args == 2) begin\par
+      $display("Loading memory from file %0s with offset %X ...", file_path, offset_addr);\par
+      zaphod_dtcm_load_memory(file_path, offset_addr, err);\par
+    end\par
+    else begin\par
+      $display("ERROR: Syntax error in %0s.", file_path);\par
+    end\par
+\par
+    if(err) begin\par
+      `uvm_fatal( "zaphodd_task","Error Generated while Loading Memory")\par
+    end\par
+  endtask\par
+\par
+  function void build_phase(uvm_phase phase);\par
+    super.build_phase(phase);\par
+ \par
+   endfunction : build_phase \par
+\par
+endclass\par
+\par
+\par
+class eagle_zaphod_dtcm_test extends zaphod_base_test;\par
+\par
+  `uvm_component_utils(eagle_zaphod_dtcm_test)\par
+   tb_config cfg; \par
+   string trans_name;\par
+  function new(string name = "eagle_zaphod_dtcm_test", uvm_component parent = null);\par
+    super.new(name, parent);\par
+  endfunction : new\par
+\par
+  function void build_phase(uvm_phase phase);\par
+    super.build_phase(phase);\par
+      \par
+    `uvm_info(get_full_name()," ********* This is eagle_zaphod_dtcm_test running ******** ",UVM_LOW)\par
+\par
+   cfg = new(); \par
+\par
+      // Add any TB customization here\par
+      cfg.amba_vip_en = 1;\par
+      cfg.amba_sys_env_en[sh_mem_ss_idx] = 1;\par
+\par
+      cfg.exp0_mstr_is_active = 1;      \par
+      cfg.exp1_mstr_is_active = 1;  \par
+      cfg.host_mstr_is_active = 1;  \par
+      cfg.zaphod_mstr_is_active = 1; \par
+      cfg.zaphod_en=1;\par
+      cfg.apb_rst_turn_off = 0;\par
+      if($test$plusargs("BKDR")) begin\par
+      cfg.dis_vip_chk_bkdr = 1; \par
+      end\par
+            \par
+      uvm_config_db #(tb_config)::set(null,"*", "tb_config", cfg); \par
+\par
+  endfunction : build_phase\par
+\par
+  task run_phase(uvm_phase phase);\par
+  bit dtcm_check_mem;\par
+    \par
+\tab string zaphod_test_path = "";\par
+    eagle_zaphod_dtcm_test_seq dtcm_test_seq; \par
+    dtcm_test_seq = eagle_zaphod_dtcm_test_seq :: type_id :: create("dtcm_test_seq");\par
+\tab nic_remap_reg_if.nic_remap = 32'h8000_0000;\par
+    phase.raise_objection(this);\par
+      `uvm_info(get_full_name(), "Eagle Zaphod Power Indicative Maximum Test!!!", UVM_LOW)\par
+       dtcm_test_seq.v_sqr = env.v_sequencer; \par
+\par
+       if(!$value$plusargs("zaphod_c=%s", zaphod_test_path)) begin\par
+          `uvm_fatal(get_full_name(), "Please provide zaphod testcase directory using -zaphod_c=<testname>")\par
+       end\par
+    for(int index = 0; index<2; index++) begin\par
+\tab\tab if(index == 1) begin\par
+          this.trans_name = "WRITE_MODE";\par
+          `uvm_info(get_full_name(), "executing write sequence", UVM_LOW) \par
+        end\par
+\par
+\par
+\tab if($test$plusargs("SRAM_DTCM_MIRROR"))begin\par
+\tab\tab test_mem_name = "SRAM_STRIPED";\par
+      if(this.trans_name == "WRITE_MODE") begin\par
+        weight_base_addr_val              = 32'h0340_2EA0; \par
+        scratch_buffer_base_addr_val      = 32'h0340_0000; \par
+        input_data_stream_base_addr_val   = 32'h0340_1AA0; \par
+        output_data_stream_base_addr_val  = 32'h037F_EDF0; \par
+      end else begin\par
+        weight_base_addr_val              = 32'h037F_FEA0; \par
+        scratch_buffer_base_addr_val      = 32'h037F_D000; \par
+        input_data_stream_base_addr_val   = 32'h037F_EAA0; \par
+        output_data_stream_base_addr_val  = 32'h0342_0000; \par
+      end\par
+     end\par
+\tab else begin\tab\par
+\tab    test_mem_name = "DTCM_EXTSYS0";\par
+\par
+\tab    if(index == 0)begin\par
+       weight_base_addr_val              = 32'h5080_2EA0;\par
+       scratch_buffer_base_addr_val      = 32'h5880_0000;\par
+       input_data_stream_base_addr_val   = 32'h5080_1AA0;\par
+       output_data_stream_base_addr_val  = 32'h5882_0000; \par
+\tab    end\par
+\tab    else begin\par
+       weight_base_addr_val              = 32'h0280_2EA0;\par
+       scratch_buffer_base_addr_val      = 32'h0380_0000;\par
+       input_data_stream_base_addr_val   = 32'h0280_1AA0;\par
+       output_data_stream_base_addr_val  = 32'h0382_0000; \par
+\tab    end\par
+    end\par
+       `uvm_info(get_full_name()," ********* This is eagle_zaphod_dtcm_test running ******** ",UVM_LOW);\par
+\par
+       #200;\par
+       super.mem_name = test_mem_name;\par
+       super.base_addr = (input_data_stream_base_addr_val - 32'h110);\par
+       zaphod_dtcm_load_mem(\{zaphod_test_path, "/memorymap.hex32"\}, 0, 2);\par
+       \par
+       super.mem_name = "REF";\par
+       super.base_addr = output_data_stream_base_addr_val;\par
+       zaphod_dtcm_load_mem(\{zaphod_test_path, "/reference_mem_0.hex32"\}, 0, 2);\par
+\par
+       dtcm_test_seq.start(null); \par
+\par
+\tab    super.mem_name = test_mem_name;\par
+       super.base_addr = output_data_stream_base_addr_val;\par
+\tab   \par
+       //@(posedge tb_top.u_sh_mem.u_sse700_f0_shared_mem.u_zaphod.IRQ); \par
+       //@(posedge `SH_MEM_HIER.zaphod_irq);\par
+          #100;\par
+           zaphod_dtcm_check_mem(dtcm_check_mem);\par
+          if(!(dtcm_check_mem)) begin\par
+              `uvm_error(get_full_name(), "OUTPUT STREAM DATA MATCH FAILED!!!")\par
+          end else begin\par
+              `uvm_info(get_full_name(), "OUTPUT STREAM DATA MATCH PASSED!!!", UVM_LOW)\par
+          end\par
+\par
+\tab end\par
+\par
+   phase.drop_objection(this); \par
+\par
+  endtask\par
+\par
+endclass : eagle_zaphod_dtcm_test\par
+}
+ 
