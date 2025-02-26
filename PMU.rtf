@@ -1,0 +1,2031 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}{\f1\fnil Calibri;}}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sl240\slmult1\f0\fs10\lang9 Table 4-1: host_map address mapping\par
+Offset Size Name Content Description\par
+0x0000 - 0x007F 128B BASE Register page BASE NPU base registers\par
+0x0080 - 0x00FF 128B BASE_POINTERS Register page BASE_POINTERS NPU base pointers\par
+0x0100 - 0x017F 128B reserved Reserved -\par
+0x0180 - 0x02FF 384B reserved Reserved -\par
+0x0300 - 0x03FF 256B reserved Reserved -\par
+0x0400 - 0x093F 1344B reserved Reserved -\par
+0x0940 - 0x0BFF 704B reserved Reserved -\par
+0x0C00 - 0x0EFF 768B reserved Reserved -\par
+0x0F00 - 0x0FFF 256B ID Register page ID NPU ID registers\par
+0x1000 - 0x117F 384B reserved Reserved -\par
+0x1180 - 0x11FF 128B PMU Register page PMU NPU PMU registers\par
+0x1200 - 0x12FF 256B reserved Reserved -\par
+0x1300 - 0x13FF 256B PMU_COUNTERS Register page PMU_COUNTERS NPU PMU counters\par
+0x1400 - 0x1FFF 3KiB reserved Reserved -\par
+4.2 Register sets for NPU control\par
+NPU control register sets.\par
+The following pages and subpages contain the NPU control control registers.\par
+Table 4-2: NPU control register set summary\par
+Name Size Description Access\par
+BASE 128-byte The NPU control registers bank *\par
+BASE_POINTERS 128-byte NPU register bank *\par
+ID 256-byte NPU register bank *\par
+PMU 128-byte Performance monitoring *\par
+PMU_COUNTERS 256-byte Performance monitoring counters *\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 40 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+4.2.1 BASE register summary\par
+The NPU control registers bank.\par
+Table 4-3: BASE register summary\par
+Offset Name Type Reset Width Description\par
+0x0000 ID ro 0x20007000 32-bit ID register\par
+0x0004 STATUS ro See individual bit resets 32-bit Register describes the current operating status of the NPU\par
+0x0008 CMD rw 0x0000000C 32-bit The command register. This register reads as last written\par
+command\par
+0x000C RESET rw 0x00000000 32-bit Request reset and new security mode\par
+0x0010 -\par
+0x0014\par
+QBASE rw 0x0000000000000000 64-bit The base address of the command stream in bytes\par
+0x0018 QREAD ro 0x00000000 32-bit The read offset in the command stream in bytes. Multiple of\par
+four in the range 0-16MB\par
+0x001C QCONFIG rw 0x00000000 32-bit The AXI configuration for the command stream in the range\par
+0-3. Same encoding as for REGIONCFG\par
+0x0020 QSIZE rw 0x00000000 32-bit The size of the command stream in bytes. Multiple of four in\par
+the range 0-16MB\par
+0x0024 PROT ro 0x00000000 32-bit The protection level configured for the NPU when acting as\par
+an AXI Requester\par
+0x0028 CONFIG ro See individual bit resets 32-bit RTL configuration\par
+0x002C Reserved - - 32-bit -\par
+0x0030 COND_STATUS rw 0x00000000 32-bit Condition status of the NPU\par
+0x0034 Reserved - - 32-bit -\par
+0x0038 POWER_CTRL rw 0x00000000 32-bit Power control register\par
+0x003C REGIONCFG rw 0x00000000 32-bit Specify which MEM_ATTR register applies to each region\par
+0x0040 MEM_ATTR0 rw 0x00000000 32-bit Memory attributes 0\par
+0x0044 MEM_ATTR1 rw 0x00000000 32-bit Memory attributes 1\par
+0x0048 MEM_ATTR2 rw 0x00000000 32-bit Memory attributes 2\par
+0x004C MEM_ATTR3 rw 0x00000000 32-bit Memory attributes 3\par
+0x0050 AXI_SRAM rw 0x00000000 32-bit The AXI configuration for SRAM ports\par
+0x0054 AXI_EXT rw 0x00000000 32-bit The AXI configuration for EXT ports\par
+0x0058 -\par
+0x005C\par
+Reserved - - 64-bit -\par
+0x0060 CFG_SRAM_CAP ro 0x00000000 32-bit The value of the CFGSRAMCAP pins, SRAM AXI ports cap\par
+0x0064 CFG_EXT_CAP ro 0x00000000 32-bit The value of the CFGEXTCAP pins, EXT AXI ports cap\par
+0x0068 -\par
+0x006C\par
+CFG_SRAM_HASH0 ro 0x0000000000000000 64-bit The value of the CFGSRAMHASH0 pins, SRAM AXI port\par
+select bit 0 hash\par
+0x0070 -\par
+0x0074\par
+CFG_SRAM_HASH1 ro 0x0000000000000000 64-bit The value of the CFGSRAMHASH1 pins, SRAM AXI port\par
+select bit 1 hash\par
+0x0078 -\par
+0x007C\par
+CFG_EXT_HASH0 ro 0x0000000000000000 64-bit The value of the CFGEXTHASH0 pins, EXT AXI port select bit\par
+0 hash\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 41 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+4.2.1.1 ID register\par
+ID register.\par
+This register can be read in stopped or running state.\par
+The default value of this RO register describes the product version. Refer to the individual fields for\par
+information.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0000\par
+Type\par
+ro\par
+Reset value\par
+0x20007000\par
+Bit descriptions\par
+Figure 4-1: ID bit assignments\par
+31 28 27 20 19 16 15 12 11 8 7 4 3 0\par
+AMAR AMIR APR PMA VMA VMI VST\par
+Table 4-4: BASE.ID bit descriptions\par
+Bits Name Description Reset\par
+[3:0] version_status (VST) This value is the version of the product.\par
+This value is an unsigned integer. Its default value is 0 (IMPLEMENTATION\par
+DEFINED).\par
+Access\par
+ro\par
+0 (IMPLEMENTATION\par
+DEFINED)\par
+[7:4] version_minor (VMI) This value is the n for the P part of an RnPn release number.\par
+This value is an unsigned integer. Its default value is 0 (IMPLEMENTATION\par
+DEFINED).\par
+Access\par
+ro\par
+0 (IMPLEMENTATION\par
+DEFINED)\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 42 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[11:8] version_major (VMA) This value is the n for the R part of an RnPn release number.\par
+This value is an unsigned integer. Its default value is 0 (IMPLEMENTATION\par
+DEFINED).\par
+Access\par
+ro\par
+0 (IMPLEMENTATION\par
+DEFINED)\par
+[15:12] product_major (PMA) Product major ID number (unique per base product).\par
+This value is an unsigned integer. Its default value is 7 (IMPLEMENTATION\par
+DEFINED).\par
+Access\par
+ro\par
+7 (IMPLEMENTATION\par
+DEFINED)\par
+[19:16] arch_patch_rev (APR) This value is the patch number of the architecture version a.b.\par
+This value is an unsigned integer. Its default value is 0 (IMPLEMENTATION\par
+DEFINED).\par
+Access\par
+ro\par
+0 (IMPLEMENTATION\par
+DEFINED)\par
+[27:20] arch_minor_rev\par
+(AMIR)\par
+This value is the minor architecture version number, b in the architecture\par
+version a.b.\par
+This value is an unsigned integer. Its default value is 0 (IMPLEMENTATION\par
+DEFINED).\par
+Access\par
+ro\par
+0 (IMPLEMENTATION\par
+DEFINED)\par
+[31:28] arch_major_rev\par
+(AMAR)\par
+This value is the major architecture version number, a in the architecture\par
+version a.b.\par
+This value is an unsigned integer. Its default value is 2 (IMPLEMENTATION\par
+DEFINED).\par
+Access\par
+ro\par
+2 (IMPLEMENTATION\par
+DEFINED)\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.1.2 STATUS register\par
+Register describes the current operating status of the NPU.\par
+This register can be read in stopped or running state.\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 43 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0004\par
+Type\par
+ro\par
+Reset value\par
+See individual bit resets.\par
+Bit descriptions\par
+Figure 4-2: STATUS bit assignments\par
+31 16 15 12 11 10 9 8 7 6 5 4 3 2 1 0\par
+IRQ_MSK FC FI R BF EF R PQ ER PE RT BT IQ ST\par
+Table 4-5: BASE.STATUS bit descriptions\par
+Bits Name Description Reset\par
+[0] state (ST) This value is an enumeration of type state_t. Its default value is stopped.\par
+This field can contain the following values:\par
+0\par
+stopped - The NPU is in stopped state\par
+1\par
+running - The NPU is in running state\par
+Access\par
+ro\par
+stopped\par
+[1] irq_raised (IQ) The raw (unmasked) IRQ status raised to the host. The IRQ is cleared using CMD.clear_irq.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+Access\par
+ro\par
+0x0\par
+[2] bus_status (BT) If a bus abort is detected, the NPU stops, sets this status bit and raises an IRQ to the host. The NPU\par
+does not process further commands or AXI transactions after the bus abort is detected.\par
+This fault bit can only be cleared by reset.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+Access\par
+ro\par
+0x0\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 44 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[3] reset_status (RT) When a reset is in progress only this STATUS register can be read. All other registers read as 0 and\par
+writes are ignored during a reset.\par
+This value is an unsigned integer. Its default value is 0x1.\par
+Access\par
+ro\par
+0x1\par
+[4] cmd_parse_error\par
+(PE)\par
+If a command stream parsing error is detected, the NPU stops, sets this status bit and raises an IRQ\par
+to the host.\par
+This error bit can only be cleared by reset.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+Access\par
+ro\par
+0x0\par
+[5] cmd_end_reached\par
+(ER)\par
+The command stream end is reached when QREAD = QSIZE. When commands are complete the\par
+NPU stops, sets this status bit and raises and IRQ to the host.\par
+Clear this bit by writing to QBASE or QSIZE when the NPU is in stopped state.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+Access\par
+ro\par
+0x0\par
+[6] pmu_irq_raised\par
+(PQ)\par
+This status bit is cleared using CMD.clear_irq.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+Access\par
+ro\par
+0x0\par
+[7] Reserved - -\par
+[8] ecc_fault (EF) An ECC fault is a detected but uncorrected error on internal RAMs. Corrected errors do not cause a\par
+fault. This fault is only available if ECC logic has been added to the internal RAMs.\par
+An ECC fault will cause the NPU to stop, set this status bit and then raise an IRQ to the host.\par
+This fault bit can only be cleared by reset.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+Access\par
+ro\par
+0x0\par
+[9] branch_fault (BF) A branch fault is a branch outside of the command stream offset range of 0 to QSIZE.\par
+An branch fault causes the NPU to stop, set this status bit and then raise an IRQ to the host.\par
+This fault bit can only be cleared by reset.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+Access\par
+ro\par
+0x0\par
+[10] Reserved - -\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 45 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[11] faulting_interface\par
+(FI)\par
+This value is an enumeration of type dma_fault_src_t.\par
+This field can contain the following values:\par
+0\par
+sram - SRAM\par
+1\par
+ext - External\par
+Access\par
+ro\par
+-\par
+[15:12] faulting_channel\par
+(FC)\par
+This value is an enumeration of type dma_fault_channel_t.\par
+This field can contain the following values:\par
+0\par
+cmd_read - Command stream read channel\par
+1\par
+ifm_read - IFM read channel\par
+2\par
+weight_read - Weight stream read channel\par
+3\par
+sbs_read - Scale and bias stream read channel\par
+4\par
+mem2mem_read - Memory to memory read channel\par
+5..7\par
+Reserved\par
+8\par
+ofm_write - OFM write channel\par
+9\par
+mem2mem_write - Memory to memory write channel\par
+10..15\par
+Reserved\par
+Access\par
+ro\par
+-\par
+[31:16] irq_history_mask\par
+(IRQ_MSK)\par
+These bits are used for debug purposes. Each IRQ or event operation provides a 16-bit mask.\par
+This history mask contains the logical-or of these 16-bit masks. The bits can be cleared using\par
+CMD.clear_irq_history.\par
+This value is an unsigned integer. Its default value is 0x0000.\par
+Access\par
+ro\par
+0x0000\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 46 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+4.2.1.3 CMD register\par
+The command register. This register reads as last written command.\par
+This register can be read or written in stopped or running state.\par
+A read of this register returns the last written command.\par
+If this register is written within a reset sequence then only the clock_q_enable and power_q_enable\par
+take effect. Other bits are ignored.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0008\par
+Type\par
+rw\par
+Reset value\par
+0x0000000C\par
+Bit descriptions\par
+Figure 4-3: CMD bit assignments\par
+31 16 15 5 4 3 2 1 0\par
+CLR_IRQ_HIST Reserved SQ PE CE CQ RS\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 47 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Table 4-6: BASE.CMD bit descriptions\par
+Bits Name Description Reset\par
+[0] transition_to_running_state\par
+(RS)\par
+Writing 1 to this bit in stopped state causes the NPU to transition to running state and\par
+start executing the command stream. The address of the command stream is as follows:\par
+\f1\bullet  If the NPU has previously transitioned from running to stopped state by execution of\par
+an NPU_OP_STOP operation and QBASE or QSIZE have not been written since that\par
+transition, then the NPU continues from the point of previous execution. That is the\par
+NPU executes next the command at address QBASE+QREAD.\par
+\bullet  Otherwise the NPU starts execution at the address QBASE\par
+Writing 1 to this bit in running state has no effect\par
+This value is an unsigned integer. Its default value is 0x0.\par
+0x0\par
+[1] clear_irq (CQ) Write 1 to clear the IRQ status in the STATUS register. Writing 0 has no effect.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+0x0\par
+[2] clock_q_enable (CE) Write 1 to this bit to enable clock off using clock q-interface and enable the requester clock\par
+gate.\par
+This value is an unsigned integer. Its default value is 0x1.\par
+0x1\par
+[3] power_q_enable (PE) Write 1 to this bit to enable power off using power q-interface.\par
+This value is an unsigned integer. Its default value is 0x1.\par
+0x1\par
+[4] stop_request (SQ) Writing 1 to this bit in stopped state has no effect.\par
+Writing 1 to this bit in running state transitions the NPU to stopped state as follows:\par
+1. If g_chain_length > 0 then the NPU continues to issue commands until g_chain_length\par
+= 0, which occurs after a command that writes to a non-chained OFM.\par
+2. The NPU stops issuing new commands.\par
+3. QREAD is set to the offset of the command that would have been issued next.\par
+4. The NPU waits for all issued commands to complete.\par
+5. The NPU enters stopped state.\par
+6. The NPU issues an IRQ to the host.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+0x0\par
+[15:5] Reserved - -\par
+[31:16] clear_irq_history\par
+(CLR_IRQ_HIST)\par
+When bit k is set then corresponding bit k of the status register is cleared. The\par
+corresponding bit is the IRQ history bit.\par
+This value is an unsigned integer. Its default value is 0x0000.\par
+0x0000\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+Copyright \f0\'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 48 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+4.2.1.4 RESET register\par
+Request reset and new security mode.\par
+This register can be read or written in stopped or running state.\par
+A write to this register performs the following actions:\par
+\f1\bullet  Current operations are halted (in an AXI safe way).\par
+\bullet  All register state is cleared apart from the pending privilege level set by this write.\par
+\bullet  The NPU reset sequence is started, including internal RAM clear.\par
+\bullet  The privilege level is set to the privilege level that is the lower of the host privilege level making\par
+this write (PPROT) and the pending privilege level set by this write. See PROT for further\par
+information.\par
+\bullet  Power control is masked until the next write to the CMD register. Thus power_q_enable has no\par
+effect (power is kept on) until the next write to CMD.\par
+Reading this register returns the last written value.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x000C\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-4: RESET bit assignments\par
+31 2 1 0\par
+Reserved NS PL\par
+Copyright \f0\'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 49 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Table 4-7: BASE.RESET bit descriptions\par
+Bits Name Description Reset\par
+[0] pending_CPL (PL) The current privilege level.\par
+This value is an enumeration of type privilege_level_t. Its default value is user.\par
+This field can contain the following values:\par
+0\par
+user - The NPU is configured for User-level access\par
+1\par
+privileged - The NPU is configured for Privileged-level access\par
+user\par
+[1] pending_CSL (NS) The current security level.\par
+This value is an enumeration of type security_level_t. Its default value is secure.\par
+This field can contain the following values:\par
+0\par
+secure - The security level of the NPU is configured as Secure\par
+1\par
+non_secure - The security level of the NPU is configured as Non-secure\par
+secure\par
+[31:2] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.5 QBASE register\par
+The base address of the command stream in bytes.\par
+The address must be four-byte aligned.\par
+This register can only be accessed while the NPU is in stopped state. An access made in running\par
+state is UNPREDICTABLE.\par
+The register reads or writes the command stream base address. Writing QBASE sets a new start\par
+address for execution the next time the NPU enters the run state.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+64-bit\par
+Address offset\par
+0x0010 - 0x0014\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 50 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Type\par
+rw\par
+Reset value\par
+0x0000000000000000\par
+Bit descriptions\par
+Figure 4-5: QBASE bit assignments\par
+31 8 7 0\par
+0\par
+1 offset\par
+Reserved\par
+Table 4-8: BASE.QBASE bit descriptions\par
+Bits Name Description Reset\par
+[39:0] offset This value is a pointer. Its default value is NULL. This pointer has the following extra properties:\par
+Address space\par
+virtual\par
+Target type\par
+byte\par
+NULL\par
+[63:40] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.6 QREAD register\par
+The read offset in the command stream in bytes. Multiple of four in the range 0-16MB.\par
+This register can be read in stopped or running state.\par
+This register gives the current execution position in the command stream as an offset from QBASE.\par
+Specifically, commands in the command stream that occur in sequence before the command at\par
+address QBASE+QREAD are complete. Commands that are at address k for k>=QBASE+QREAD\par
+can have started execution but are not yet marked as completed.\par
+At all times, 0 <= QREAD <= QSIZE. If QREAD==QSIZE then all commands in the stream are\par
+complete. If there is an error, QREAD does not necessarily point to the faulting command.\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 51 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0018\par
+Type\par
+ro\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-6: QREAD bit assignments\par
+31 0\par
+QREAD\par
+Table 4-9: BASE.QREAD bit descriptions\par
+Bits Name Description Reset\par
+[31:0] QREAD The read offset of the current command under execution.\par
+This value is an unsigned integer. Its default value is 0x00000000.\par
+Access\par
+ro\par
+0x00000000\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.1.7 QCONFIG register\par
+The AXI configuration for the command stream in the range 0-3. Same encoding as for\par
+REGIONCFG.\par
+This register can only be accessed while the NPU is in stopped state. An access made in running\par
+state is UNPREDICTABLE.\par
+The register encodes the AXI configuration for access to the command stream.\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 52 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x001C\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-7: QCONFIG bit assignments\par
+31 2 1 0\par
+Reserved CR\par
+Table 4-10: BASE.QCONFIG bit descriptions\par
+Bits Name Description Reset\par
+[1:0] cmd_region0 (CR) The command region configuration number.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[31:2] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.8 QSIZE register\par
+The size of the command stream in bytes. Multiple of four in the range 0-16MB.\par
+This register can only be accessed while the NPU is in stopped state. An access made in running\par
+state is UNPREDICTABLE.\par
+The NPU can read to the next multiple of 128 bytes beyond the end size of the command stream.\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 53 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0020\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-8: QSIZE bit assignments\par
+31 0\par
+QSIZE\par
+Table 4-11: BASE.QSIZE bit descriptions\par
+Bits Name Description Reset\par
+[31:0] QSIZE The size of the next command stream to be executed by the NPU.\par
+This value is an unsigned integer. Its default value is 0x00000000.\par
+0x00000000\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.9 PROT register\par
+The protection level configured for the NPU when acting as an AXI Requester.\par
+This register can be read while the NPU is in stopped or running state.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0024\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 54 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Type\par
+ro\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-9: PROT bit assignments\par
+31 2 1 0\par
+Reserved NS PL\par
+Table 4-12: BASE.PROT bit descriptions\par
+Bits Name Description Reset\par
+[0] active_CPL\par
+(PL)\par
+This bit is used as AxPROT[0] when the NPU is an AXI Requester. After hard reset, this bit is set to Power On\par
+Reset Privilege Level (PORPL). After soft reset, this bit is set to pending_CPL, if PPROT[0]==1, otherwise the\par
+bit is set to 0. PPROT[0] is the value used by the APB Requester writing the RESET register that starts the\par
+reset. For this bit to be effective, there must be a system-level MPU built for the system. This MPU is not part\par
+of the NPU deliverables.\par
+This value is an enumeration of type privilege_level_t. Its default value is user.\par
+This field can contain the following values:\par
+0\par
+user - The NPU is configured for User-level access\par
+1\par
+privileged - The NPU is configured for Privileged-level access\par
+Access\par
+ro\par
+user\par
+[1] active_CSL\par
+(NS)\par
+This bit is used as AxPROT[1] when the NPU is an AXI Requester and set from Pending CSL after reset is\par
+complete. After hard reset, this bit is set to Power On Reset Security Level (PORSL), which allows for CPUs\par
+that do not support TrustZone. After soft reset, this bit is set to pending_CSL, if PPROT[1]==0, otherwise it\par
+is set to 1. PPROT[1] is the value used by the APB Requester writing the RESET register that starts the reset.\par
+For this bit to be effective, there must be a memory protection controller included. This memory protection\par
+controller is not part of the NPU deliverables.\par
+This value is an enumeration of type security_level_t. Its default value is secure.\par
+This field can contain the following values:\par
+0\par
+secure - The security level of the NPU is configured as Secure\par
+1\par
+non_secure - The security level of the NPU is configured as Non-secure\par
+Access\par
+ro\par
+secure\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 55 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[31:2] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.1.10 CONFIG register\par
+RTL configuration.\par
+This register can be read while the NPU is in stopped or running state.\par
+The default value of this RO register describes the NPU configuration. Refer to the individual fields\par
+for information.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0028\par
+Type\par
+ro\par
+Reset value\par
+See individual bit resets.\par
+Bit descriptions\par
+Figure 4-10: CONFIG bit assignments\par
+31 28 27 26 14 13 12 11 10 9 8 7 4 3 0\par
+product CD Reserved WD R AE AS CS_VER MACS\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 56 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Table 4-13: BASE.CONFIG bit descriptions\par
+Bits Name Description Reset\par
+[3:0] macs_per_cc\par
+(MACS)\par
+The log2(macs/clock cycle).\par
+This value is an unsigned integer. Its default value is a configuration-specific value. The\par
+stored value is a modified version of the represented value, where the modifier applied is\par
+log2. The configurations and their values are:\par
+ETHOSU85_128 7\par
+ETHOSU85_256 8\par
+ETHOSU85_512 9\par
+ETHOSU85_1024 10\par
+ETHOSU85_2048 11\par
+Access\par
+ro\par
+A configuration\'02specific value\par
+[7:4] cmd_stream_version\par
+(CS_VER)\par
+The command stream version accepted by this NPU.\par
+This value is an unsigned integer. Its default value is 1 (IMPLEMENTATION DEFINED).\par
+Access\par
+ro\par
+1\par
+(IMPLEMENTATION\par
+DEFINED)\par
+[9:8] num_axi_sram (AS) The log2 of the number of AXI SRAM interfaces.\par
+This value is an unsigned integer. Its default value is a configuration-specific value. The\par
+stored value is a modified version of the represented value, where the modifier applied is\par
+log2. The configurations and their values are:\par
+ETHOSU85_128 1\par
+ETHOSU85_256 1\par
+ETHOSU85_512 1\par
+ETHOSU85_1024 1\par
+ETHOSU85_2048 2\par
+Access\par
+ro\par
+A configuration\'02specific value\par
+[10] num_axi_ext (AE) The log2 of the number of on-chip SRAM memory interfaces.\par
+This value is an unsigned integer. Its default value is a configuration-specific value. The\par
+stored value is a modified version of the represented value, where the modifier applied is\par
+log2. The configurations and their values are:\par
+ETHOSU85_128 0\par
+ETHOSU85_256 0\par
+ETHOSU85_512 0\par
+ETHOSU85_1024 1\par
+ETHOSU85_2048 1\par
+Access\par
+ro\par
+A configuration\'02specific value\par
+[11] Reserved - -\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 57 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[13:12] num_wd (WD) The log2 of the number of standard weight decoders.\par
+This value is an unsigned integer. Its default value is a configuration-specific value. The\par
+stored value is a modified version of the represented value, where the modifier applied is\par
+log2. The configurations and their values are:\par
+ETHOSU85_128 0\par
+ETHOSU85_256 0\par
+ETHOSU85_512 1\par
+ETHOSU85_1024 2\par
+ETHOSU85_2048 2\par
+Access\par
+ro\par
+A configuration\'02specific value\par
+[26:14] Reserved - -\par
+[27] custom_dma (CD) The custom DMA configuration.\par
+This value is an enumeration of type custom_dma_t. Its default value is not_implemented\par
+(IMPLEMENTATION DEFINED).\par
+This field can contain the following values:\par
+0\par
+not_implemented - Custom DMA feature not implemented\par
+1\par
+implemented - Custom DMA feature implemented\par
+Access\par
+ro\par
+not_implemented\par
+(IMPLEMENTATION\par
+DEFINED)\par
+[31:28] product The product configuration.\par
+This value is an unsigned integer. Its default value is 2 (IMPLEMENTATION DEFINED).\par
+Access\par
+ro\par
+2\par
+(IMPLEMENTATION\par
+DEFINED)\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.1.11 COND_STATUS register\par
+Condition status of the NPU.\par
+This register can only be accessed while the NPU is in stopped state. An access made in running\par
+state is UNPREDICTABLE.\par
+A read of this register returns the status of conditions within the NPU that a following conditional\par
+branch can use. A write of this register sets the status of conditions that applies to a following\par
+conditional branch.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 58 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0030\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-11: COND_STATUS bit assignments\par
+31 1 0\par
+Reserved RF\par
+Table 4-14: BASE.COND_STATUS bit descriptions\par
+Bits Name Description Reset\par
+[0] result_flag\par
+(RF)\par
+The tensor result flag. For OFM with a single element, this is bit 0 of the value. Otherwise\par
+UNPREDICTABLE.\par
+This value is an unsigned integer. Its default value is 0x0.\par
+Access\par
+rw\par
+0x0\par
+[31:1] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.12 POWER_CTRL register\par
+Power control register.\par
+This register can only be accessed while the NPU is in stopped state. An access made in running\par
+state is UNPREDICTABLE.\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 59 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0038\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-12: POWER_CTRL bit assignments\par
+31 6 5 0\par
+Reserved mac_step_cycles\par
+Table 4-15: BASE.POWER_CTRL bit descriptions\par
+Bits Name Description Reset\par
+[5:0] mac_step_cycles If the value is zero then power ramping is disabled.\par
+If the value is non-zero it specifies the number of cycles between each MAC unit step in ramp up or ramp\par
+down. This reduces rapid changes in power consumption by smoothing out the beginning and end of\par
+intensive arithmetic operations. The value is of the form 4*n where n is stored in the register.\par
+This value is an unsigned integer. Its default value is 0. The stored value is a modified version of the\par
+represented value, where the modifier applied is shr(2).\par
+Access\par
+rw\par
+0\par
+[31:6] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.13 REGIONCFG register\par
+Specify which MEM_ATTR register applies to each region.\par
+This register can be read in stopped or running state but only written in stopped state. A write\par
+made in running state is UNPREDICTABLE.\par
+For each of the eight memory regions, there is a 2-bit value in the range 0-3. This value specifies\par
+which memory attribute register MEM_ATTR0 to MEM_ATTR3 applies to this region.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 60 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x003C\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-13: REGIONCFG bit assignments\par
+31 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0\par
+Reserved R7 R6 R5 R4 R3 R2 R1 R0\par
+Table 4-16: BASE.REGIONCFG bit descriptions\par
+Bits Name Description Reset\par
+[1:0] region0 (R0) Bits for Region(n) configuration.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[3:2] region1 (R1) Bits for Region(n) configuration.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[5:4] region2 (R2) Bits for Region(n) configuration.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[7:6] region3 (R3) Bits for Region(n) configuration.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[9:8] region4 (R4) Bits for Region(n) configuration.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[11:10] region5 (R5) Bits for Region(n) configuration.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[13:12] region6 (R6) Bits for Region(n) configuration.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 61 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[15:14] region7 (R7) Bits for Region(n) configuration.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[31:16] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.14 MEM_ATTR0 register\par
+Memory attributes 0.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0040\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-14: MEM_ATTR0 bit assignments\par
+31 8 7 4 3 2 1 0\par
+Reserved memtype R AP MEMD\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 62 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Table 4-17: BASE.MEM_ATTR0 bit descriptions\par
+Bits Name Description Reset\par
+[1:0] mem_domain\par
+(MEMD)\par
+Memory domain.\par
+This value is an enumeration of type axi_mem_domain_t. Its default value is\par
+non_sharable.\par
+This field can contain the following values:\par
+0x0\par
+non_sharable - AxDomain=00 (non device memory only)\par
+0x1\par
+inner_sharable - AxDomain=01 (non device memory only)\par
+0x2\par
+outer_sharable - AxDomain=10 (non device memory only)\par
+0x3\par
+system - AxDomain=11 (normal and device memory only)\par
+non_sharable\par
+[2] axi_port (AP) The AXI port select.\par
+This value is an enumeration of type axi_port_t. Its default value is sram.\par
+This field can contain the following values:\par
+0x0\par
+sram - SRAM AXI port or ports selected\par
+0x1\par
+ext - EXT AXI port or ports selected\par
+sram\par
+[3] Reserved - -\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 63 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[7:4] memtype The Memtype used to encode AxCACHE signals.\par
+This value is an enumeration of type axi_mem_encoding_t. Its default value is\par
+device_non_bufferable.\par
+This field can contain the following values:\par
+0x0\par
+device_non_bufferable - ARCACHE=0000, AWCACHE=0000\par
+0x1\par
+device_bufferable - ARCACHE=0001, AWCACHE=0001\par
+0x2\par
+normal_non_cacheable_non_bufferable - ARCACHE=0010, AWCACHE=0010\par
+0x3\par
+normal_non_cacheable_bufferable - ARCACHE=0011, AWCACHE=0011\par
+0x4\par
+write_through_no_allocate - ARCACHE=1010, AWCACHE=0110\par
+0x5\par
+write_through_read_allocate - ARCACHE=1110, AWCACHE=0110\par
+0x6\par
+write_through_write_allocate - ARCACHE=1010, AWCACHE=1110\par
+0x7\par
+write_through_read_and_write_allocate - ARCACHE=1110, AWCACHE=1110\par
+0x8\par
+write_back_no_allocate - ARCACHE=1011, AWCACHE=0111\par
+0x9\par
+write_back_read_allocate - ARCACHE=1111, AWCACHE=0111\par
+0xA\par
+write_back_write_allocate - ARCACHE=1011, AWCACHE=1111\par
+0xB\par
+write_back_read_and_write_allocate - ARCACHE=1111, AWCACHE=1111\par
+0xC..0xF\par
+Reserved\par
+device_non_bufferable\par
+[31:8] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.15 MEM_ATTR1 register\par
+Memory attributes 1.\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 64 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0044\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-15: MEM_ATTR1 bit assignments\par
+31 8 7 4 3 2 1 0\par
+Reserved memtype R AP MEMD\par
+Table 4-18: BASE.MEM_ATTR1 bit descriptions\par
+Bits Name Description Reset\par
+[1:0] mem_domain\par
+(MEMD)\par
+Memory domain.\par
+This value is an enumeration of type axi_mem_domain_t. Its default value is\par
+non_sharable.\par
+This field can contain the following values:\par
+0x0\par
+non_sharable - AxDomain=00 (non device memory only)\par
+0x1\par
+inner_sharable - AxDomain=01 (non device memory only)\par
+0x2\par
+outer_sharable - AxDomain=10 (non device memory only)\par
+0x3\par
+system - AxDomain=11 (normal and device memory only)\par
+non_sharable\par
+[2] axi_port (AP) The AXI port select.\par
+This value is an enumeration of type axi_port_t. Its default value is sram.\par
+This field can contain the following values:\par
+0x0\par
+sram - SRAM AXI port or ports selected\par
+0x1\par
+ext - EXT AXI port or ports selected\par
+sram\par
+[3] Reserved - -\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 65 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[7:4] memtype The Memtype used to encode AxCACHE signals.\par
+This value is an enumeration of type axi_mem_encoding_t. Its default value is\par
+device_non_bufferable.\par
+This field can contain the following values:\par
+0x0\par
+device_non_bufferable - ARCACHE=0000, AWCACHE=0000\par
+0x1\par
+device_bufferable - ARCACHE=0001, AWCACHE=0001\par
+0x2\par
+normal_non_cacheable_non_bufferable - ARCACHE=0010, AWCACHE=0010\par
+0x3\par
+normal_non_cacheable_bufferable - ARCACHE=0011, AWCACHE=0011\par
+0x4\par
+write_through_no_allocate - ARCACHE=1010, AWCACHE=0110\par
+0x5\par
+write_through_read_allocate - ARCACHE=1110, AWCACHE=0110\par
+0x6\par
+write_through_write_allocate - ARCACHE=1010, AWCACHE=1110\par
+0x7\par
+write_through_read_and_write_allocate - ARCACHE=1110, AWCACHE=1110\par
+0x8\par
+write_back_no_allocate - ARCACHE=1011, AWCACHE=0111\par
+0x9\par
+write_back_read_allocate - ARCACHE=1111, AWCACHE=0111\par
+0xA\par
+write_back_write_allocate - ARCACHE=1011, AWCACHE=1111\par
+0xB\par
+write_back_read_and_write_allocate - ARCACHE=1111, AWCACHE=1111\par
+0xC..0xF\par
+Reserved\par
+device_non_bufferable\par
+[31:8] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.16 MEM_ATTR2 register\par
+Memory attributes 2.\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 66 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0048\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-16: MEM_ATTR2 bit assignments\par
+31 8 7 4 3 2 1 0\par
+Reserved memtype R AP MEMD\par
+Table 4-19: BASE.MEM_ATTR2 bit descriptions\par
+Bits Name Description Reset\par
+[1:0] mem_domain\par
+(MEMD)\par
+Memory domain.\par
+This value is an enumeration of type axi_mem_domain_t. Its default value is\par
+non_sharable.\par
+This field can contain the following values:\par
+0x0\par
+non_sharable - AxDomain=00 (non device memory only)\par
+0x1\par
+inner_sharable - AxDomain=01 (non device memory only)\par
+0x2\par
+outer_sharable - AxDomain=10 (non device memory only)\par
+0x3\par
+system - AxDomain=11 (normal and device memory only)\par
+non_sharable\par
+[2] axi_port (AP) The AXI port select.\par
+This value is an enumeration of type axi_port_t. Its default value is sram.\par
+This field can contain the following values:\par
+0x0\par
+sram - SRAM AXI port or ports selected\par
+0x1\par
+ext - EXT AXI port or ports selected\par
+sram\par
+[3] Reserved - -\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 67 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[7:4] memtype The Memtype used to encode AxCACHE signals.\par
+This value is an enumeration of type axi_mem_encoding_t. Its default value is\par
+device_non_bufferable.\par
+This field can contain the following values:\par
+0x0\par
+device_non_bufferable - ARCACHE=0000, AWCACHE=0000\par
+0x1\par
+device_bufferable - ARCACHE=0001, AWCACHE=0001\par
+0x2\par
+normal_non_cacheable_non_bufferable - ARCACHE=0010, AWCACHE=0010\par
+0x3\par
+normal_non_cacheable_bufferable - ARCACHE=0011, AWCACHE=0011\par
+0x4\par
+write_through_no_allocate - ARCACHE=1010, AWCACHE=0110\par
+0x5\par
+write_through_read_allocate - ARCACHE=1110, AWCACHE=0110\par
+0x6\par
+write_through_write_allocate - ARCACHE=1010, AWCACHE=1110\par
+0x7\par
+write_through_read_and_write_allocate - ARCACHE=1110, AWCACHE=1110\par
+0x8\par
+write_back_no_allocate - ARCACHE=1011, AWCACHE=0111\par
+0x9\par
+write_back_read_allocate - ARCACHE=1111, AWCACHE=0111\par
+0xA\par
+write_back_write_allocate - ARCACHE=1011, AWCACHE=1111\par
+0xB\par
+write_back_read_and_write_allocate - ARCACHE=1111, AWCACHE=1111\par
+0xC..0xF\par
+Reserved\par
+device_non_bufferable\par
+[31:8] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.17 MEM_ATTR3 register\par
+Memory attributes 3.\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 68 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x004C\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-17: MEM_ATTR3 bit assignments\par
+31 8 7 4 3 2 1 0\par
+Reserved memtype R AP MEMD\par
+Table 4-20: BASE.MEM_ATTR3 bit descriptions\par
+Bits Name Description Reset\par
+[1:0] mem_domain\par
+(MEMD)\par
+Memory domain.\par
+This value is an enumeration of type axi_mem_domain_t. Its default value is\par
+non_sharable.\par
+This field can contain the following values:\par
+0x0\par
+non_sharable - AxDomain=00 (non device memory only)\par
+0x1\par
+inner_sharable - AxDomain=01 (non device memory only)\par
+0x2\par
+outer_sharable - AxDomain=10 (non device memory only)\par
+0x3\par
+system - AxDomain=11 (normal and device memory only)\par
+non_sharable\par
+[2] axi_port (AP) The AXI port select.\par
+This value is an enumeration of type axi_port_t. Its default value is sram.\par
+This field can contain the following values:\par
+0x0\par
+sram - SRAM AXI port or ports selected\par
+0x1\par
+ext - EXT AXI port or ports selected\par
+sram\par
+[3] Reserved - -\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 69 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[7:4] memtype The Memtype used to encode AxCACHE signals.\par
+This value is an enumeration of type axi_mem_encoding_t. Its default value is\par
+device_non_bufferable.\par
+This field can contain the following values:\par
+0x0\par
+device_non_bufferable - ARCACHE=0000, AWCACHE=0000\par
+0x1\par
+device_bufferable - ARCACHE=0001, AWCACHE=0001\par
+0x2\par
+normal_non_cacheable_non_bufferable - ARCACHE=0010, AWCACHE=0010\par
+0x3\par
+normal_non_cacheable_bufferable - ARCACHE=0011, AWCACHE=0011\par
+0x4\par
+write_through_no_allocate - ARCACHE=1010, AWCACHE=0110\par
+0x5\par
+write_through_read_allocate - ARCACHE=1110, AWCACHE=0110\par
+0x6\par
+write_through_write_allocate - ARCACHE=1010, AWCACHE=1110\par
+0x7\par
+write_through_read_and_write_allocate - ARCACHE=1110, AWCACHE=1110\par
+0x8\par
+write_back_no_allocate - ARCACHE=1011, AWCACHE=0111\par
+0x9\par
+write_back_read_allocate - ARCACHE=1111, AWCACHE=0111\par
+0xA\par
+write_back_write_allocate - ARCACHE=1011, AWCACHE=1111\par
+0xB\par
+write_back_read_and_write_allocate - ARCACHE=1111, AWCACHE=1111\par
+0xC..0xF\par
+Reserved\par
+device_non_bufferable\par
+[31:8] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.18 AXI_SRAM register\par
+The AXI configuration for SRAM ports.\par
+The limits in this register apply to each SRAM port separately in the case of multiple SRAM AXI\par
+ports.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 70 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Table 4-21: SRAM ports (128b) 40-bit address configuration-specific ranges for max outstanding reads and max\par
+outstanding writes\par
+NPU configurations (MACs/CC) Number of ports Max outstanding reads per\par
+ports\par
+Max outstanding writes per\par
+ports\par
+128 2 12 16\par
+256 2 12 16\par
+512 2 12 16\par
+1024 2 12 16\par
+2048 4 12 16\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0050\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-18: AXI_SRAM bit assignments\par
+31 18 17 16 15 13 12 8 7 6 5 0\par
+Reserved MB Reserved max_write Res max_read\par
+Table 4-22: BASE.AXI_SRAM bit descriptions\par
+Bits Name Description Reset\par
+[5:0] max_outstanding_read_m1\par
+(max_read)\par
+The range is 0 to 63. The limit applies to each port separately in the case of multiple ports.\par
+This provides an upper limit and the limit may not be reached. For example, the number of\par
+outstanding accesses is also limited by the BASE.CFG registers and the NPU issue ability for\par
+the given data channel. See the initial table on configuration-specific ranges for the maximum\par
+number of issues for a given configuration.\par
+This value is an unsigned integer. Its default value is 0x00.\par
+0x00\par
+[7:6] Reserved - -\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 71 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[12:8] max_outstanding_write_m1\par
+(max_write)\par
+The range is 0 to 31. The limit applies to each port separately in the case of multiple ports.\par
+This provides an upper limit and the limit may not be reached. For example, the number of\par
+outstanding accesses is also limited by the BASE.CFG registers and the NPU issue ability for\par
+the given data channel. See the initial table on configuration-specific ranges for the maximum\par
+number of issues for a given configuration.\par
+This value is an unsigned integer. Its default value is 0x00.\par
+0x00\par
+[15:13] Reserved - -\par
+[17:16] max_beats (MB) Bursts are split at an alignment that is the minimum of this alignment and the alignment set\par
+by the corresponding configuration pins.\par
+This value is an enumeration of type max_beats_t. Its default value is B64.\par
+This field can contain the following values:\par
+0\par
+B64 - AXI bursts are split at a 64-byte aligned boundary\par
+1\par
+B128 - AXI bursts are split at a 128-byte aligned boundary\par
+2\par
+B256 - AXI bursts are split at a 256-byte aligned boundary\par
+3\par
+Reserved\par
+B64\par
+[31:18] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.19 AXI_EXT register\par
+The AXI configuration for EXT ports.\par
+The limits in this register apply to each EXT port separately in the case of multiple EXT AXI ports.\par
+Table 4-23: EXT ports (128b) 40-bit address configuration-specific ranges for max outstanding reads and max\par
+outstanding writes\par
+NPU configurations (MACs/CC) Number of ports Max outstanding reads per\par
+ports\par
+Max outstanding writes per\par
+ports\par
+128 1 32 32\par
+256 1 32 32\par
+512 1 64 32\par
+1024 2 64 32\par
+2048 2 64 32\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 72 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0054\par
+Type\par
+rw\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-19: AXI_EXT bit assignments\par
+31 18 17 16 15 13 12 8 7 6 5 0\par
+Reserved MB Reserved max_write Res max_read\par
+Table 4-24: BASE.AXI_EXT bit descriptions\par
+Bits Name Description Reset\par
+[5:0] max_outstanding_read_m1\par
+(max_read)\par
+The range is 0 to 63. The limit applies to each port separately in the case of multiple ports.\par
+This provides an upper limit and the limit may not be reached. For example, the number of\par
+outstanding accesses is also limited by the BASE.CFG registers and the NPU issue ability for\par
+the given data channel. See the initial table on configuration-specific ranges for the maximum\par
+number of issues for a given configuration.\par
+This value is an unsigned integer. Its default value is 0x00.\par
+0x00\par
+[7:6] Reserved - -\par
+[12:8] max_outstanding_write_m1\par
+(max_write)\par
+The range is 0 to 31. The limit applies to each port separately in the case of multiple ports.\par
+This provides an upper limit and the limit may not be reached. For example, the number of\par
+outstanding accesses is also limited by the BASE.CFG registers and the NPU issue ability for\par
+the given data channel. See the initial table on configuration-specific ranges for the maximum\par
+number of issues for a given configuration.\par
+This value is an unsigned integer. Its default value is 0x00.\par
+0x00\par
+[15:13] Reserved - -\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 73 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[17:16] max_beats (MB) Bursts are split at an alignment that is the minimum of this alignment and the alignment set\par
+by the corresponding configuration pins.\par
+This value is an enumeration of type max_beats_t. Its default value is B64.\par
+This field can contain the following values:\par
+0\par
+B64 - AXI bursts are split at a 64-byte aligned boundary\par
+1\par
+B128 - AXI bursts are split at a 128-byte aligned boundary\par
+2\par
+B256 - AXI bursts are split at a 256-byte aligned boundary\par
+3\par
+Reserved\par
+B64\par
+[31:18] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.1.20 CFG_SRAM_CAP register\par
+The value of the CFGSRAMCAP pins, SRAM AXI ports cap.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0060\par
+Type\par
+ro\par
+Reset value\par
+0x00000000\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 74 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bit descriptions\par
+Figure 4-20: CFG_SRAM_CAP bit assignments\par
+31 18 17 16 15 13 12 8 7 6 5 0\par
+Reserved MB Reserved max_write Res max_read\par
+Table 4-25: BASE.CFG_SRAM_CAP bit descriptions\par
+Bits Name Description Reset\par
+[5:0] max_outstanding_read_m1\par
+(max_read)\par
+The range is 0 to 63. The limit applies to each port separately in the case of multiple ports.\par
+This provides an upper limit and the limit may not be reached. For example, the number of\par
+outstanding accesses is also limited by the BASE.AXI registers and the NPU issue ability for\par
+the given data channel.\par
+This value is an unsigned integer. Its default value is 0x00.\par
+0x00\par
+[7:6] Reserved - -\par
+[12:8] max_outstanding_write_m1\par
+(max_write)\par
+The range is 0 to 31. The limit applies to each port separately in the case of multiple ports.\par
+This provides an upper limit and the limit may not be reached. For example, the number of\par
+outstanding accesses is also limited by the BASE.AXI registers and the NPU issue ability for\par
+the given data channel.\par
+This value is an unsigned integer. Its default value is 0x00.\par
+0x00\par
+[15:13] Reserved - -\par
+[17:16] max_beats (MB) Bursts are split at an alignment that is the minimum of this alignment and the alignment set\par
+by the corresponding AXI configuration register.\par
+This value is an enumeration of type max_beats_t. Its default value is B64.\par
+This field can contain the following values:\par
+0\par
+B64 - AXI bursts are split at a 64-byte aligned boundary\par
+1\par
+B128 - AXI bursts are split at a 128-byte aligned boundary\par
+2\par
+B256 - AXI bursts are split at a 256-byte aligned boundary\par
+3\par
+Reserved\par
+B64\par
+[31:18] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 75 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+4.2.1.21 CFG_EXT_CAP register\par
+The value of the CFGEXTCAP pins, EXT AXI ports cap.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x0064\par
+Type\par
+ro\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-21: CFG_EXT_CAP bit assignments\par
+31 18 17 16 15 13 12 8 7 6 5 0\par
+Reserved MB Reserved max_write Res max_read\par
+Table 4-26: BASE.CFG_EXT_CAP bit descriptions\par
+Bits Name Description Reset\par
+[5:0] max_outstanding_read_m1\par
+(max_read)\par
+The range is 0 to 63. The limit applies to each port separately in the case of multiple ports.\par
+This provides an upper limit and the limit may not be reached. For example, the number of\par
+outstanding accesses is also limited by the BASE.AXI registers and the NPU issue ability for\par
+the given data channel.\par
+This value is an unsigned integer. Its default value is 0x00.\par
+0x00\par
+[7:6] Reserved - -\par
+[12:8] max_outstanding_write_m1\par
+(max_write)\par
+The range is 0 to 31. The limit applies to each port separately in the case of multiple ports.\par
+This provides an upper limit and the limit may not be reached. For example, the number of\par
+outstanding accesses is also limited by the BASE.AXI registers and the NPU issue ability for\par
+the given data channel.\par
+This value is an unsigned integer. Its default value is 0x00.\par
+0x00\par
+[15:13] Reserved - -\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 76 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bits Name Description Reset\par
+[17:16] max_beats (MB) Bursts are split at an alignment that is the minimum of this alignment and the alignment set\par
+by the corresponding AXI configuration register.\par
+This value is an enumeration of type max_beats_t. Its default value is B64.\par
+This field can contain the following values:\par
+0\par
+B64 - AXI bursts are split at a 64-byte aligned boundary\par
+1\par
+B128 - AXI bursts are split at a 128-byte aligned boundary\par
+2\par
+B256 - AXI bursts are split at a 256-byte aligned boundary\par
+3\par
+Reserved\par
+B64\par
+[31:18] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.1.22 CFG_SRAM_HASH0 register\par
+The value of the CFGSRAMHASH0 pins, SRAM AXI port select bit 0 hash.\par
+The result of this hash function is used to define bit 0 of the SRAM AXI port select for\par
+configurations with 2 or 4 SRAM ports.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+64-bit\par
+Address offset\par
+0x0068 - 0x006C\par
+Type\par
+ro\par
+Reset value\par
+0x0000000000000000\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 77 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bit descriptions\par
+Figure 4-22: CFG_SRAM_HASH0 bit assignments\par
+31 8 7 6 5 0\par
+0\par
+1\par
+0 0 0 0 0 0\par
+hash\par
+Reserved\par
+Table 4-27: BASE.CFG_SRAM_HASH0 bit descriptions\par
+Bits Name Description Reset\par
+[5:0] zero These bits must be zero.\par
+This value is an unsigned integer. It must have the exact value 0b000000.\par
+0b000000\par
+[39:6] hash Hash function.\par
+This mask is combined with the address using a logical bitwise AND and then the resultant bits are all\par
+combined using an exclusive OR. The result is a single bit that is used for AXI port selection.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[63:40] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.1.23 CFG_SRAM_HASH1 register\par
+The value of the CFGSRAMHASH1 pins, SRAM AXI port select bit 1 hash.\par
+The result of this hash function is used to define bit 1 of the SRAM AXI port select for\par
+configurations with 4 SRAM ports.\par
+This register mirrors the values of the CFGSRAMHASH1 configuration pins.\par
+CFGSRAMHASH1 = 0x0 for NUM_MACS = 128, 256 and 512\par
+CFGSRAMHASH1 for NUM_MACS = 1024 and 2048 reflects the values on the configuration pins\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+64-bit\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 78 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Address offset\par
+0x0070 - 0x0074\par
+Type\par
+ro\par
+Reset value\par
+0x0000000000000000\par
+Bit descriptions\par
+Figure 4-23: CFG_SRAM_HASH1 bit assignments\par
+31 8 7 6 5 0\par
+0\par
+1\par
+0 0 0 0 0 0\par
+hash\par
+Reserved\par
+Table 4-28: BASE.CFG_SRAM_HASH1 bit descriptions\par
+Bits Name Description Reset\par
+[5:0] zero These bits must be zero.\par
+This value is an unsigned integer. It must have the exact value 0b000000.\par
+0b000000\par
+[39:6] hash Hash function.\par
+This mask is combined with the address using a logical bitwise AND and then the resultant bits are all\par
+combined using an exclusive OR. The result is a single bit that is used for AXI port selection.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[63:40] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.1.24 CFG_EXT_HASH0 register\par
+The value of the CFGEXTHASH0 pins, EXT AXI port select bit 0 hash.\par
+The result of this hash function is used to define bit 0 of the EXT AXI port select for configurations\par
+with 2 EXT ports.\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 79 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+64-bit\par
+Address offset\par
+0x0078 - 0x007C\par
+Type\par
+ro\par
+Reset value\par
+0x0000000000000000\par
+Bit descriptions\par
+Figure 4-24: CFG_EXT_HASH0 bit assignments\par
+31 8 7 6 5 0\par
+0\par
+1\par
+0 0 0 0 0 0\par
+hash\par
+Reserved\par
+Table 4-29: BASE.CFG_EXT_HASH0 bit descriptions\par
+Bits Name Description Reset\par
+[5:0] zero These bits must be zero.\par
+This value is an unsigned integer. It must have the exact value 0b000000.\par
+0b000000\par
+[39:6] hash Hash function.\par
+This mask is combined with the address using a logical bitwise AND and then the resultant bits are all\par
+combined using an exclusive OR. The result is a single bit that is used for AXI port selection.\par
+This value is an unsigned integer. Its default value is 0.\par
+0\par
+[63:40] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.2 BASE_POINTERS register summary\par
+NPU register bank.\par
+Table 4-30: BASE_POINTERS register summary\par
+Offset Name Type Reset Width Description\par
+0x0000 - 0x003C BASEP0 [0..7] rw 0x0000000000000000 64-byte AXI base address of the respective region number 0 - 7\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 80 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Offset Name Type Reset Width Description\par
+0x0040 - 0x007C Reserved - - 64-byte -\par
+4.2.2.1 BASEP_ARRAY[0..7] register array\par
+AXI base address of the respective region number 0 - 7.\par
+This is an array of similar registers, collectively referred to as BASEP_ARRAY[]. The definition of\par
+element 0 is as follows:\par
+This base address is added to all address offsets in the command stream that access region 0. If the\par
+region contains data requiring A-byte alignment then the base address must be a multiple of A. The\par
+driver uses this register to set the run-time address of a region.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+64-bit\par
+Address offset\par
+0x0000 - 0x0004\par
+Type\par
+rw\par
+Reset value\par
+0x0000000000000000\par
+Bit descriptions\par
+Figure 4-25: BASEP0 bit assignments\par
+31 8 7 0\par
+0\par
+1 offset\par
+Reserved\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 81 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Table 4-31: BASE_POINTERS.BASEP_ARRAY bit descriptions\par
+Bits Name Description Reset\par
+[39:0] offset This value is a pointer. Its default value is NULL. This pointer has the following extra properties:\par
+Address space\par
+virtual\par
+Target type\par
+byte\par
+NULL\par
+[63:40] Reserved - -\par
+Accessibility\par
+Access to this register is restricted to mode rw.\par
+4.2.3 ID register summary\par
+NPU register bank.\par
+Table 4-32: ID register summary\par
+Offset Name Type Reset Width Description\par
+0x0000 -\par
+0x00CC\par
+Reserved - - 208-\par
+byte\par
+-\par
+0x00D0 PID4 ro 0x00000004 32-bit Peripheral ID byte 4 (Arm=code 4)\par
+0x00D4 PID5 ro 0x00000000 32-bit Peripheral ID byte 5 (reserved)\par
+0x00D8 PID6 ro 0x00000000 32-bit Peripheral ID byte 6 (reserved)\par
+0x00DC PID7 ro 0x00000000 32-bit Peripheral ID byte 7 (reserved)\par
+0x00E0 PID0 ro 0x00000082 32-bit Peripheral ID byte 0. This is bits[7:0] of the part number\par
+0x00E4 PID1 ro 0x000000B5 32-bit Peripheral ID byte 1. This is bits[11:8] of the part number in bits[3:0], and\par
+bits[3:0] of the Arm ID in bits[7:4]\par
+0x00E8 PID2 ro 0x0000000B 32-bit Peripheral ID byte 2. This is bits[6:4] of the Arm ID in bits[2:0], and bit 3 indicates\par
+format B\par
+0x00EC PID3 ro 0x00000000 32-bit Peripheral ID byte 3\par
+0x00F0 CID0 ro 0x0000000D 32-bit Component ID byte 0\par
+0x00F4 CID1 ro 0x000000F0 32-bit Component ID byte 1\par
+0x00F8 CID2 ro 0x00000005 32-bit Component ID byte 2\par
+0x00FC CID3 ro 0x000000B1 32-bit Component ID byte 3\par
+4.2.3.1 PID4 register\par
+Peripheral ID byte 4 (Arm=code 4).\par
+Configurations\par
+This register is available in all configurations.\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 82 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x00D0\par
+Type\par
+ro\par
+Reset value\par
+0x00000004\par
+Bit descriptions\par
+Figure 4-26: PID4 bit assignments\par
+31 0\par
+PID4\par
+Table 4-33: ID.PID4 bit descriptions\par
+Bits Name Description Reset\par
+[31:0] PID4 This value is an unsigned integer. Its default value is 0x00000004.\par
+Access\par
+ro\par
+0x00000004\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.3.2 PID5 register\par
+Peripheral ID byte 5 (reserved).\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x00D4\par
+Type\par
+ro\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 83 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-27: PID5 bit assignments\par
+31 0\par
+PID5\par
+Table 4-34: ID.PID5 bit descriptions\par
+Bits Name Description Reset\par
+[31:0] PID5 This value is an unsigned integer. Its default value is 0x00000000.\par
+Access\par
+ro\par
+0x00000000\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.3.3 PID6 register\par
+Peripheral ID byte 6 (reserved).\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x00D8\par
+Type\par
+ro\par
+Reset value\par
+0x00000000\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 84 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Bit descriptions\par
+Figure 4-28: PID6 bit assignments\par
+31 0\par
+PID6\par
+Table 4-35: ID.PID6 bit descriptions\par
+Bits Name Description Reset\par
+[31:0] PID6 This value is an unsigned integer. Its default value is 0x00000000.\par
+Access\par
+ro\par
+0x00000000\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.3.4 PID7 register\par
+Peripheral ID byte 7 (reserved).\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x00DC\par
+Type\par
+ro\par
+Reset value\par
+0x00000000\par
+Bit descriptions\par
+Figure 4-29: PID7 bit assignments\par
+31 0\par
+PID7\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 85 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Table 4-36: ID.PID7 bit descriptions\par
+Bits Name Description Reset\par
+[31:0] PID7 This value is an unsigned integer. Its default value is 0x00000000.\par
+Access\par
+ro\par
+0x00000000\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.3.5 PID0 register\par
+Peripheral ID byte 0. This is bits[7:0] of the part number.\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x00E0\par
+Type\par
+ro\par
+Reset value\par
+0x00000082\par
+Bit descriptions\par
+Figure 4-30: PID0 bit assignments\par
+31 0\par
+PID0\par
+Table 4-37: ID.PID0 bit descriptions\par
+Bits Name Description Reset\par
+[31:0] PID0 This value is an unsigned integer. Its default value is 0x00000082 (IMPLEMENTATION\par
+DEFINED).\par
+Access\par
+ro\par
+0x00000082 (IMPLEMENTATION\par
+DEFINED)\par
+Copyright \'a9 2024 Arm Limited (or its affiliates). All rights reserved.\par
+Confidential\par
+Page 86 of 362\par
+Arm\'ae\par
+Ethos\'99-U85 NPU Technical reference manual Document ID: 102685_0000_02_en\par
+Issue 02\par
+Programmers model\par
+Accessibility\par
+Access to this register is restricted to mode ro.\par
+4.2.3.6 PID1 register\par
+Peripheral ID byte 1. This is bits[11:8] of the part number in bits[3:0], and bits[3:0] of the Arm ID in\par
+bits[7:4].\par
+Configurations\par
+This register is available in all configurations.\par
+Attributes\par
+Width\par
+32-bit\par
+Address offset\par
+0x00E4\par
+Type\par
+ro\par
+Reset value\par
+0x000000B5\par
+Bit descriptions\par
+Figure 4-31: PID1 bit assignments\par
+31 0\par
+PID1\par
+Table 4-38: ID.PID1 bit descriptions\par
+Bits Name Description Reset\par
+[31:0] PID1 This value is an unsigned integer. Its default value is 0x000000B5.\par
+Access\par
+ro\par
+0x000000B5\par
+Accessibility\par
+Access to this register is restricted to mode ro\par
+}
+ 
