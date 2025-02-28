@@ -1,0 +1,373 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sl240\slmult1\f0\fs16\lang9 #include <stdio.h>\par
+#include <stdarg.h>\par
+#include <string.h>\par
+#include "system.h"\par
+#include "cpu_asm_codes.h"\par
+#include "base_addr.h"\par
+#include "gic400.h"\par
+#include "system_level_functions.h"\par
+#include "intr_rtr_1_reg.h"\par
+#include "shared_irq_def.h"\par
+#include "ethosu85_interface.h"\par
+#define HANDSHAKE_ADDR                0x4902C100\par
+#define WEIGHT_BASE_ADDR              (HANDSHAKE_ADDR + 0x10)\par
+#define SCRATCH_BUFFER_BASE_ADDR      (HANDSHAKE_ADDR + 0x14)\par
+#define INPUT_DATA_STREAM_BASE_ADDR   (HANDSHAKE_ADDR + 0x18)\par
+#define OUTPUT_DATA_STREAM_BASE_ADDR  (HANDSHAKE_ADDR + 0x1C)\par
+#define NO_OF_XFERS                   (HANDSHAKE_ADDR + 0x20)\par
+#define CMD_MEM                       (HANDSHAKE_ADDR + 0x28)\par
+#define NPU_BASE_ADDRESS              0x49042000\par
+#define NPU                           ((volatile struct NPU_REG *) NPU_BASE_ADDRESS)\par
+#define HW_REG_WORD(base, offset)     (*(volatile uint32_t *)((base) + (offset)))\par
+#define FW_HANDSHAKE_ADDR                0x02000000\par
+\par
+volatile static int intr_handled = 0;\par
+struct regioncfg_r regioncfg = \{ .word = 0 \};\par
+static void IntHandler_zaphod(int num, int src);\par
+void mem_copy_a32(volatile uint64_t* ptrSrc, volatile uint64_t* ptrDest, uint32_t  len);\par
+void perf_val_read(struct regioncfg_r regioncfg);\par
+void pmu_counter_cfg(struct regioncfg_r regioncfg);\par
+static uint32_t npu_command_length;\par
+static uint32_t npu_weight_length;\par
+\par
+int main() \{\par
+  unsigned int weight_base_addr             = 0;\par
+  unsigned int scratch_buffer_base_addr     = 0;\par
+  unsigned int input_data_stream_base_addr  = 0;\par
+  unsigned int output_data_stream_base_addr = 0;\par
+  unsigned int cmd_base_addr_val            = 0;\par
+  unsigned int no_of_xfers                  = 0;\par
+  unsigned int cmd_mem                      = 0;\par
+  int rd_data = 0;\par
+  npu_command_length = 0x110;\par
+  npu_weight_length = 0x1510;\par
+  struct mem_attr_r sram_attr = \{ .axi_port = AXI_PORT_SRAM, .memtype = AXI_MEM_ENCODING_NORMAL_NON_CACHEABLE_NON_BUFFERABLE \};\par
+  struct mem_attr_r ext_attr = \{ .axi_port = AXI_PORT_EXT, .memtype = AXI_MEM_ENCODING_NORMAL_NON_CACHEABLE_NON_BUFFERABLE \};\par
+  //struct regioncfg_r regioncfg = \{ .word = 0 \};\par
+\par
+  printf("Zaphod Power Indicative Maximum Test\\n");\par
+\par
+  // TODO: add logic in SV to write the output stream\par
+  // back to hex32 file to check with the refrence data\par
+ \par
+  #ifdef FW_ZAPCHECK\par
+  printf("waiting FW handshake from secenc Test\\n");\par
+  do \{\par
+    rd_data= HW_REG_WORD(FW_HANDSHAKE_ADDR, 0);\par
+  \} while(rd_data != 0xAAAAAAAA);\par
+  #endif\par
+ \par
+  interrupt_router_f0_Type* intr_router_reg_struct = (interrupt_router_f0_Type*)HOST_CPU_INTERRUPT_ROUTER_BASE; \par
+  //Program Interrupt Router\par
+  intr_rtr_err_ctrl(intr_router_reg_struct,0x1);\par
+  intr_rtr_select_intr(intr_router_reg_struct,ROUTER_SHMEM_ZAPHOD_IRQ ,0);\par
+  printf("A32 D1 \\n"); \par
+  intr_rtr_set_ici_en(intr_router_reg_struct,0x2,0);\par
+  printf("A32 D2 \\n");\par
+  gic_initialise_intr(GIC400_SHMEM_ZAPHOD_IRQ + 32, 0, 1, 0);\par
+  gic_install_handler(GIC400_SHMEM_ZAPHOD_IRQ+ 32, &IntHandler_zaphod);\par
+  gic_enable_interrupt(GIC400_SHMEM_ZAPHOD_IRQ+ 32);\par
+  enable_irq();\par
+\par
+  HW_REG_WORD(HANDSHAKE_ADDR, 0) = 0xcafebabe;\par
+\par
+  #ifdef SRAM_STRIPED\par
+    #ifdef CPU_LOADING\par
+      // zaphod_sram_striped_a32_fd_pwr_ind_max:\par
+      //TRACE:     5133626 ns: C 8: 0x00000000: DMAGO C0, 0x02040000\par
+      //TRACE:     5133704 ns: C 0: 0x02040000: DMAMOV CCR, 0x001dc077\par
+      // reserved 0,\par
+      // endian_swap_size 000,\par
+      // dst_cache_ctrl 000,\par
+      // dst_prot_ctrl 000,\par
+      // dst_burst_len 0111,\par
+      // dst_busrst_size 011,\par
+      // dst_inc 1,\par
+      // src_cache_ctrl 000,\par
+      // src_prot_ctrl 000,\par
+      // src_burst_len 0111 (16 data transfers),\par
+      // src_burst_size 011 (8 bytes per burst),\par
+      // src_inc 1\par
+      \par
+      //TRACE:     5133714 ns: C 0: 0x02040006: DMAMOV SAR, 0x50801000\par
+      //TRACE:     5133724 ns: C 0: 0x0204000c: DMAMOV DAR, 0x03401a00\par
+      //TRACE:     5133729 ns: C 0: 0x02040012: DMALP LC1, 255\par
+\par
+      // Clock gating enable\par
+      HW_REG_WORD(0x4903F00C,0) |= (0x1<<4);         // set bit4 to enable dma clock\par
+      HW_REG_WORD(HANDSHAKE_ADDR,0x4) = 0x900D900D ; //Synchronization with A32 Handshake address \par
+      //Wait for Handshake from SV side \par
+      do\{\par
+        printf("in C do while \\n");\par
+        rd_data= HW_REG_WORD(HANDSHAKE_ADDR,0xc);\par
+        printf("rd_data = %0x\\n",rd_data);\par
+      \} while(rd_data != 0xABABABAB );\par
+\par
+      // zaphod_sram_striped_a32_fd_pwr_ind_max: use cpu instead of dma...\par
+      mem_copy_a32((volatile uint64_t*) 0x50801000,  (volatile uint64_t*) (0x03401a00), (uint32_t) (543 * 16));\par
+    #endif\par
+    #ifndef CPU_LOADING\par
+      // Configure DMA0 Boot to Secure mode\par
+      HW_REG_WORD(CFGSLV1_BASE_ADDR, 0x70) = 0;\par
+      HW_REG_WORD(CFGSLV1_BASE_ADDR, 0x74) = 0;\par
+      HW_REG_WORD(CFGSLV1_BASE_ADDR, 0x78) = 0;\par
+      // Reset DMA0 module to switch to Secure mode\par
+      HW_REG_WORD(CFGSLV1_BASE_ADDR, 0x70) = 1 << 16;\par
+      // channel 0 EXTSYS0 TCM -> SRAM\par
+      // Clock gating enable\par
+      HW_REG_WORD(0x4903F00C,0) |= (0x1<<4);// 0xFFFFFFFF;\par
+      HW_REG_WORD(HANDSHAKE_ADDR,0x4) = 0x900D900D ; //Synchronization with A32 Handshake address \par
+      // Wait for Handshake from SV side \par
+      do \{\par
+        printf("in C do while \\n");\par
+        rd_data= HW_REG_WORD(HANDSHAKE_ADDR,0xc);\par
+        printf("rd_data = %0x\\n",rd_data);\par
+      \} while(rd_data != 0xABABABAB );\par
+\par
+      //#ifdef DEBUG \par
+      printf("DMA0 secure channel 0 thread configurations to  EXTSYS0 TCM  -> SRAM data transfer\\n");\par
+      rd_data = HW_REG_WORD((DMA0_BASE_ADDR+0xD00),0);\par
+      HW_REG_WORD((DMA0_BASE_ADDR+0xD08),0) = 0x00A00000;\par
+      HW_REG_WORD((DMA0_BASE_ADDR+0xD0C),0) = 0x02040000;\par
+      HW_REG_WORD((DMA0_BASE_ADDR+0xD04),0) = 0x00000000;\par
+      rd_data = HW_REG_WORD((DMA0_BASE_ADDR+0x100),0);\par
+      do \{ \par
+         rd_data = HW_REG_WORD((DMA0_BASE_ADDR+0x100),0); //Channel0 Status Registers\par
+         //#ifdef DEBUG \par
+           printf("rd_data = %0x\\n",rd_data);\par
+         //#endif\par
+         if(rd_data == 0x0E) \{\par
+           printf("DMA Error has occured \\n");\par
+           TEST_FAIL();\par
+         \}\par
+         else if (rd_data == 0x0f) \{\par
+           printf("DMA Fault occured \\n");\par
+           TEST_FAIL();\par
+         \}\par
+      \} while(rd_data != 0x00000000);\par
+    #endif\par
+  #endif\par
+\par
+  do \{\par
+    rd_data = HW_REG_WORD(HANDSHAKE_ADDR, 8);\par
+  \}\par
+  while (rd_data != 0xdeadbeef);\par
+  weight_base_addr              = HW_REG_WORD(WEIGHT_BASE_ADDR, 0x00);\par
+  scratch_buffer_base_addr      = HW_REG_WORD(SCRATCH_BUFFER_BASE_ADDR, 0x00);\par
+  input_data_stream_base_addr   = HW_REG_WORD(INPUT_DATA_STREAM_BASE_ADDR, 0x00);\par
+  output_data_stream_base_addr  = HW_REG_WORD(OUTPUT_DATA_STREAM_BASE_ADDR, 0x00);\par
+  cmd_mem                       = HW_REG_WORD(CMD_MEM, 0x00);\par
+  if(cmd_mem)\{\par
+  cmd_base_addr_val             = weight_base_addr - npu_weight_length;\par
+  \}else\{\par
+  cmd_base_addr_val             = input_data_stream_base_addr - npu_command_length;\par
+  \}\par
+  no_of_xfers                   = HW_REG_WORD(NO_OF_XFERS, 0x00);\par
+\par
+  printf("weights = %x | cmd = %x\\n", weight_base_addr, cmd_base_addr_val);\par
+  printf("scratch buffer = %x | input = %x | output = %x\\n", scratch_buffer_base_addr , input_data_stream_base_addr, output_data_stream_base_addr);\par
+  printf("no_of_xfers = %x\\n", no_of_xfers);\par
+ \par
+  // Write to a reserved region\par
+  NPU->CLKFORCE.word = (struct clkforce_r) \{ .top_level_clk = 0x1, .cc_clk = 0x1, .dma_clk = 0x1, .mac_clk = 0x1, .ao_clk = 0x1, .wd_clk = 0x1 \}.word; \par
+  // Write to enable the cnt_en bit\par
+  NPU->PMCR.word = (struct pmcr_r) \{ .cnt_en = 1 \}.word;\par
+  // Write to Power Control Reg which ramps up or ramps down power\par
+  // to avoid sudden changes in power requirement \par
+  // actual value = 4 ** n = 4 ** 2 = 16 mac_step_cycles\par
+   NPU->POWER_CTRL.word = (struct power_ctrl_r) \{ .mac_step_cycles = 2 \}.word;\par
+  // Write Max Write and Max Reads and Max Beats\par
+  // for AXI SRAM interface\par
+  NPU->AXI_SRAM.word = (struct axi_sram_r) \{ .max_outstanding_read_m1 = 0x3F, .max_outstanding_write_m1 = 0x1f, .max_beats = MAX_BEATS_B256  \}.word;\par
+  // Write Max Write and Max Reads and Max Beats\par
+  // for AXI EXT interface\par
+  NPU->AXI_EXT.word = (struct axi_ext_r) \{ .max_outstanding_read_m1 = 63, .max_outstanding_write_m1 = 31, .max_beats = MAX_BEATS_B256  \}.word;\par
+\par
+  NPU->MEM_ATTR[0].word = sram_attr.word; // MEM_ATTR0 = SRAM ports\par
+  NPU->MEM_ATTR[1].word = ext_attr.word; // MEM_ATTR1 = EXT port\par
+\par
+  // Default to MEM_ATTR0 (SRAM)\par
+  uint32_t qconfig = 0;\par
+\par
+  // Write Base Address fot the Command Stream\par
+  NPU->QBASE.offset_LO = cmd_base_addr_val;\par
+  if (cmd_base_addr_val >= 0x10000000 && (cmd_base_addr_val & 0xf0000000) != 0x50000000) \{\par
+    qconfig |= 1;\par
+  \}\par
+  NPU->QCONFIG.word = (struct qconfig_r) \{ .cmd_region0 = qconfig\}.word;\par
+  // Write the QSIZE i.e., Command Stream size \par
+  // to 6 * 4 = 24 Bytes\par
+  NPU->QSIZE.QSIZE = npu_command_length;\par
+  // Writing Base Pointer Array\par
+  // Region-0 Address - Weights\par
+  NPU->BASEP[0].offset_LO = weight_base_addr;\par
+  if (weight_base_addr >= 0x10000000 && (weight_base_addr & 0xf0000000) != 0x50000000) \{\par
+    regioncfg.region0 = 1;\par
+    printf("2 regconfig value is %x\\n",regioncfg);\par
+  \}\par
+\par
+  // Region-1 Address - Scratch Buffer\par
+  NPU->BASEP[1].offset_LO = scratch_buffer_base_addr;\par
+  if (scratch_buffer_base_addr >= 0x10000000 && (scratch_buffer_base_addr & 0xf0000000) != 0x50000000) \{\par
+    regioncfg.region1 = 1;\par
+  \}\par
+\par
+  // Region-2 Address - Input Data Stream\par
+  NPU->BASEP[2].offset_LO = input_data_stream_base_addr;\par
+  if (input_data_stream_base_addr >= 0x10000000 && (input_data_stream_base_addr & 0xf0000000) != 0x50000000) \{\par
+    regioncfg.region2 = 1;\par
+  \}\par
+\par
+  // Region-3 Address - Output Data Stream\par
+  NPU->BASEP[3].offset_LO = output_data_stream_base_addr;\par
+  if (output_data_stream_base_addr >= 0x10000000 && (output_data_stream_base_addr & 0xf0000000) != 0x50000000) \{\par
+    regioncfg.region3 = 1;\par
+  \}\par
+\par
+  // Region configuration (SRAM or EXT ports)\par
+  NPU->REGIONCFG.word = regioncfg.word;\par
+  printf("final regconfig value is %x\\n",regioncfg);\par
+  //PMU Counters enable for performance\par
+   #ifdef PERF_CFG\par
+     pmu_counter_cfg(regioncfg);\par
+   #endif\par
+  \par
+  #ifdef PWR_VCD\par
+    for (uint32_t burst_itr=0; burst_itr<no_of_xfers; burst_itr++) \{\par
+      // Write to CMD to request pwr & clk\par
+      // and transition to running state\par
+      NPU->CMD.word = (struct cmd_r) \{ .transition_to_running_state = 1\}.word;\par
+      while(intr_handled != (burst_itr+0x1))\{\par
+      \};\par
+    \}\par
+  #else\par
+    // Write to CMD to request pwr & clk\par
+    // and transition to running state\par
+    NPU->CMD.word = (struct cmd_r) \{ .transition_to_running_state = 1, .clock_q_enable = 1 , .power_q_enable = 1 \}.word;\par
+    \par
+    printf("Waiting for IRQ!!!\\n");\par
+    while(intr_handled == 0x0)\{\par
+    \};\par
+    #ifdef FW_ZAP_SEC\par
+      HW_REG_WORD(FW_HANDSHAKE_ADDR,0) = 0xDEADBEEF;\par
+    #endif\par
+  #endif\par
+  #ifdef SRAM_STRIPED\par
+    #ifdef CPU_LOADING\par
+      // zaphod_sram_striped_a32_fd_pwr_ind_max: use cpu instead of dma...\par
+      mem_copy_a32((volatile uint64_t*) output_data_stream_base_addr, (volatile uint64_t*) 0x50806000, (uint32_t) (304 * 16));\par
+    #endif  \par
+    #ifndef CPU_LOADING\par
+      // channel 1 CVM -> EXTSYS0 TCM\par
+      rd_data =0; \par
+      //#ifdef DEBUG \par
+      printf("DMA0 secure channel 1 thread configurations to CVM -> EXTSYS0 TCM data transfer\\n");\par
+      //#endif\par
+      rd_data = HW_REG_WORD((DMA0_BASE_ADDR+0xD00),0);\par
+      HW_REG_WORD((DMA0_BASE_ADDR+0xD08),0) = 0x01A00000;\par
+      HW_REG_WORD((DMA0_BASE_ADDR+0xD0C),0) = 0x02040040;\par
+      HW_REG_WORD((DMA0_BASE_ADDR+0xD04),0) = 0x00000000;\par
+      rd_data = HW_REG_WORD((DMA0_BASE_ADDR+0x108),0);\par
+      do \{ \par
+        rd_data = HW_REG_WORD((DMA0_BASE_ADDR+0x108),0);//Channel1 Status Registers\par
+        // #ifdef DEBUG \par
+          printf("data = %0x\\n",rd_data);\par
+        // #endif\par
+        if(rd_data == 0x0E) \{\par
+          printf("DMA Error has occured \\n");\par
+          TEST_FAIL();\par
+        \}\par
+        else if (rd_data == 0x0f) \{\par
+          printf("DMA Fault occured \\n");\par
+          TEST_FAIL();\par
+        \}\par
+      \} while (rd_data != 0x00000000);\par
+      //#ifdef DEBUG \par
+      printf("DMA0 secure channel 1 thread CVM <-> EXTSYS0 TCM data transfer completed\\n");\par
+      //#endif\par
+    #endif\par
+  #endif\par
+  #ifdef PERF_CFG\par
+  perf_val_read(regioncfg);\par
+  #endif\par
+  HW_REG_WORD(HANDSHAKE_ADDR, 8) = 0xabcdabcd;\par
+\par
+  TEST_PASS();\par
+\}\par
+\par
+static void IntHandler_zaphod(int num, int src) \{\par
+  int rd_data = 0;\par
+  #ifndef PWR_VCD\par
+    printf("IRQ Handler !\\n");\par
+    rd_data = NPU->STATUS.word;\par
+    printf("History Mask = %X | Status Reg = %X\\n", rd_data >> 16, rd_data);\par
+    NPU->CMD.word = (struct cmd_r) \{ .clear_irq = 1, .clock_q_enable = 1 , .power_q_enable = 1 \}.word;\par
+  #else\par
+    NPU->CMD.word = (struct cmd_r) \{ .clear_irq = 1\}.word;\par
+  #endif\par
+  intr_handled++;\par
+\}\par
+\par
+void pmu_counter_cfg(struct regioncfg_r regioncfg)\par
+\{\par
+  NPU->PMEVTYPER[0].word = (struct pmevtyper_r) \{ .EV_TYPE = 0x23 \}.word;//npu active\par
+  if(regioncfg.region0 == 0 || regioncfg.region1 == 0 || regioncfg.region2 == 0 || regioncfg.region3 == 0)\{\par
+    NPU->PMEVTYPER[1].word = (struct pmevtyper_r) \{ .EV_TYPE = 0x82 \}.word;//sram no of read beats received\par
+    NPU->PMEVTYPER[2].word = (struct pmevtyper_r) \{ .EV_TYPE = 0x87 \}.word;//sram no of write beates written\par
+  \}\par
+  if(regioncfg.region0 == 1 || regioncfg.region1 == 1 || regioncfg.region2 == 1 || regioncfg.region3 == 1)\{\par
+    NPU->PMEVTYPER[3].word = (struct pmevtyper_r) \{ .EV_TYPE = 0x182 \}.word;//ext no of read beats received\par
+    NPU->PMEVTYPER[4].word = (struct pmevtyper_r) \{ .EV_TYPE = 0x187 \}.word;//ext no of write beats written  \par
+  \}\par
+  NPU->PMCNTENSET.word = (struct pmcntenset_r) \{ .EVENT_CNT_0 =  1, .EVENT_CNT_1 =  1, .EVENT_CNT_2 =  1, .EVENT_CNT_3 =  1, .EVENT_CNT_4 =  1, .EVENT_CNT_5 =  0, .EVENT_CNT_6 =  0, .EVENT_CNT_7 =  0, .CYCLE_CNT = 1 \}.word; //enabling configured evetns\par
+  \par
+\}\par
+\par
+void perf_val_read(struct regioncfg_r regioncfg)\par
+\{\par
+  int npu_act_cyc    = 0;\par
+  int sram_rd_beats  = 0;\par
+  int sram_wr_beats  = 0;\par
+  int ext_rd_beats   = 0;\par
+  int ext_wr_beats   = 0;\par
+  \par
+  npu_act_cyc  = HW_REG(NPU_BASE_ADDRESS,0x1300) ; \par
+  printf("NPU active cycles = %d\\n",npu_act_cyc);\par
+\par
+  if(regioncfg.region0 == 0 || regioncfg.region1 == 0 || regioncfg.region2 == 0 || regioncfg.region3 == 0)\{\par
+    sram_rd_beats  = HW_REG(NPU_BASE_ADDRESS,0x1304) ; \par
+    printf("SRAM read data beats = %d\\n",sram_rd_beats);\par
+    sram_wr_beats  = HW_REG(NPU_BASE_ADDRESS,0x1308) ; \par
+    printf("SRAM write data beats = %d\\n",sram_wr_beats);\par
+  \}\par
+\par
+  if(regioncfg.region0 == 1 || regioncfg.region1 == 1 || regioncfg.region2 == 1 || regioncfg.region3 == 1)\{\par
+    ext_rd_beats  = HW_REG(NPU_BASE_ADDRESS,0x130C) ; \par
+    printf("EXT read data beats = %d\\n",ext_rd_beats);\par
+    ext_wr_beats = HW_REG(NPU_BASE_ADDRESS,0x1310) ; \par
+    printf("EXT write data beats = %d\\n",ext_wr_beats);\par
+  \}\par
+   HW_REG_WORD(HANDSHAKE_ADDR, 0x30) = npu_act_cyc;\par
+   HW_REG_WORD(HANDSHAKE_ADDR, 0x34) = sram_rd_beats;\par
+   HW_REG_WORD(HANDSHAKE_ADDR, 0x38) = sram_wr_beats;\par
+   HW_REG_WORD(HANDSHAKE_ADDR, 0x40) = ext_rd_beats;\par
+   HW_REG_WORD(HANDSHAKE_ADDR, 0x44) = ext_wr_beats;\par
+\}\par
+\par
+void mem_copy_a32(volatile uint64_t* ptrSrc, volatile uint64_t* ptrDest, uint32_t  len) //source address, dest address, number bytes\par
+\{\par
+  len >>= 3; // divide incoming byte count by 8 to match 8bytes*8=64bits accesses\par
+  printf("copying 64-bit data from 0x%0x to 0x%0x\\n", (uint32_t) ptrSrc, (uint32_t) ptrDest );\par
+  for (int i = 0; i < len; i++)\par
+  \{\par
+    (*ptrDest) = (*ptrSrc); // data copy\par
+    ptrSrc++;           // increment pointer for the next data\par
+    ptrDest++;          // increment pointer for the next data\par
+  \}\par
+  asm("  dsb;"); \par
+  printf("copying done\\n");\par
+\}\par
+}
+ 
