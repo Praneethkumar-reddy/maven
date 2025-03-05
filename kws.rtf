@@ -1,0 +1,237 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sl240\slmult1\f0\fs16\lang9\par
+class eagle_zaphod_kws_seq extends virtual_seq_lib; \par
+   \par
+   `uvm_object_utils(eagle_zaphod_kws_seq) \par
+   \par
+   function new (string name = "eagle_zaphod_kws_seq"); \par
+      super.new(name); \par
+   endfunction : new \par
+\par
+   ////////////////////////////////////////////////////////////////////////////////////\par
+   // [1]: Define any used data types or any special tasks/functions\par
+   ////////////////////////////////////////////////////////////////////////////////////\par
+\par
+\par
+   string ram1_hex_path;\par
+   \par
+   ////////////////////////////////////////////////////////////////////////////////////\par
+   virtual task pre_body();\par
+      super.pre_body();\par
+      ////////////////////////////////////////////////////////////////////////////////////\par
+      // [2]: Write the testcase sequence body\par
+      ////////////////////////////////////////////////////////////////////////////////////\par
+\par
+       get_assembly_file_name(ram1_hex_path);\par
+\par
+     // WAIT_RESET;\par
+      #1000;\par
+\tab   `uvm_info(get_full_name(), "Before parsing ram hex file", UVM_LOW)\par
+\tab DMA_RAM_FILE_PARSE(ram1_hex_path,'h0204_0000);//CVM_RAM1\par
+    `uvm_info(get_full_name(), "after parsing ram hex file", UVM_LOW)\par
+\par
+     endtask:pre_body\par
+\tab   virtual task body();\par
+      super.body();\par
+      `uvm_info(get_full_name()," ********* This is eagle_zaphod_kws_test running ******** ",UVM_HIGH);\par
+      ////////////////////////////////////////////////////////////////////////////////////\par
+   endtask: body\par
+\par
+endclass:eagle_zaphod_kws_seq\par
+\par
+\par
+\par
+\par
+class eagle_zaphod_kws_test extends eagle_zaphod_base_test;\par
+\par
+  `uvm_component_utils(eagle_zaphod_kws_test)\par
+\par
+  localparam HANDSHAKE_ADDR               = 32'h4902c100;\par
+  localparam TEST_DATA_ADDR               = 32'h8003_EBD0; //32'h8003_EBD0\par
+  localparam NPU_WORKSPACE_ADDR           = 32'h0204_8500; //32'h0204_8500\par
+  localparam npu_register_QBASE_offset    = 32'h22890;\par
+  localparam npu_register_BASEP0_offset   = 32'h2D0;\par
+  localparam workspace_area_size          = 32'h20000;\par
+  localparam WEIGHT_BASE_ADDR             = HANDSHAKE_ADDR + 32'h10;\par
+  localparam SCRATCH_BUFFER_BASE_ADDR     = HANDSHAKE_ADDR + 32'h14;\par
+  localparam INPUT_DATA_STREAM_BASE_ADDR  = HANDSHAKE_ADDR + 32'h18;\par
+  localparam OUTUPT_DATA_STREAM_BASE_ADDR = HANDSHAKE_ADDR + 32'h1C;\par
+  localparam CMD_BASE_ADDR                  = HANDSHAKE_ADDR + 32'h20;\par
+  localparam DELAY_BTWN_XFERS_IN_US       = HANDSHAKE_ADDR + 32'h24;\par
+\par
+  string test_mem_name;\par
+  string trans_name;\par
+  bit [31:0] weight_base_addr_val;\par
+  bit [31:0] cmd_base_addr_val;\par
+  bit [31:0] scratch_buffer_base_addr_val;\par
+  bit [31:0] input_data_stream_base_addr_val;\par
+  bit [31:0] output_data_stream_base_addr_val;\par
+  bit [31:0] boot_sequence;\par
+  int m_rd_data = 0;\par
+  eagle_zaphod_kws_seq test_seq; \par
+  eagle_zaphod_base_seq b_seq;\par
+\par
+  function new(string name = "eagle_zaphod_kws_test", uvm_component parent = null);\par
+    super.new(name, parent);\par
+  endfunction : new\par
+\par
+  function void build_phase(uvm_phase phase);\par
+    super.build_phase(phase);\par
+      \par
+    `uvm_info(get_full_name()," ********* This is eagle_zaphod_kws_test running ******** ",UVM_LOW)\par
+    test_seq = eagle_zaphod_kws_seq :: type_id :: create("test_seq"); \par
+    uvm_config_db #(tb_config)::set(null,"*", "tb_config", tb_cfg);\par
+    b_seq = eagle_zaphod_base_seq :: type_id :: create("b_seq");\par
+  endfunction : build_phase\par
+\par
+  task run_phase(uvm_phase phase);\par
+    phase.raise_objection(this);\par
+\par
+   this.b_seq.v_sqr = env.v_sequencer; \par
+    this.b_seq.start(null);\par
+ \par
+\par
+    `uvm_info(get_full_name(), "Eagle Zaphod Power Indicative Maximum Test!!!", UVM_LOW)\par
+         boot_sequence = 1;\par
+         drive_and_run(); \par
+         `uvm_info(get_full_name(), "EXIT SEQUENCE", UVM_LOW)\par
+    do begin\par
+      bkdr_rd_mem(HANDSHAKE_ADDR + 32'h8, m_rd_data, "LOW_PWR_BACKUP_RAM");\par
+      #1000ns;\par
+    end\par
+    while(m_rd_data != 32'h900D900D);\par
+\par
+    phase.phase_done.set_drain_time(this, 1000); \par
+    phase.drop_objection(this); \par
+\par
+  endtask\par
+\par
+task drive_and_run();\par
+\par
+      int rd_data = 0;\par
+\tab     int count1 = 0,count2 = 0;\par
+      string zaphod_test_path = "";\par
+      string ram1_hex_path; \par
+      string input_mem_name;\par
+\tab     string output_mem_name;\par
+\par
+    if(!$value$plusargs("zaphod_c=%s", zaphod_test_path)) begin\par
+      `uvm_fatal(get_full_name(), "Please provide zaphod testcase directory using -zaphod_c=<testname>")\par
+    end\par
+\par
+    while(rd_data != 32'h900D_900D )begin \par
+        bkdr_rd_mem(`EXPMST0_BK_SRAM_BASE_ADDR + ('h4),rd_data,"LOW_PWR_BACKUP_RAM");\par
+        #10ns;\par
+    end \par
+    bkdr_wr_mem(`EXPMST0_BK_SRAM_BASE_ADDR + ('h4), 32'h0,"LOW_PWR_BACKUP_RAM");\par
+   \par
+   `ifdef POWER_VCD_TEST\par
+      `ifdef GATE_SIM  \par
+          wait(tb_top.DUT.u_sse700.u_pd_systop_wrapper.u_pd_systop.u_pd_clustop.u_cpu_gic_socket.cortexa32_inst_num_cpus_2_u_cortex_a32.nL2RESET == 0)\par
+      `else\par
+          wait(tb_top.DUT.u_sse700.u_pd_systop_wrapper.u_pd_systop.u_pd_clustop.u_cpu_gic_socket.cortexa32_inst.num_cpus_2.u_cortex_a32.nL2RESET == 0 );\par
+      `endif\par
+          bkdr_wr_mem(`EXPMST0_BK_SRAM_BASE_ADDR + ('h220), 32'hCAFEFACE,"LOW_PWR_BACKUP_RAM");\par
+    `endif\par
+\par
+\par
+       `uvm_info(get_full_name(), $sformatf("GOT SYNC#0 %0h ", rd_data), UVM_LOW)\par
+\par
+    if($test$plusargs("KWS_TEST")) begin\par
+      weight_base_addr_val              = TEST_DATA_ADDR + npu_register_BASEP0_offset; \par
+      cmd_base_addr_val                 = TEST_DATA_ADDR + npu_register_QBASE_offset; \par
+      scratch_buffer_base_addr_val      = NPU_WORKSPACE_ADDR; \par
+      input_data_stream_base_addr_val   = NPU_WORKSPACE_ADDR + 32'h113A0; \par
+      output_data_stream_base_addr_val  = NPU_WORKSPACE_ADDR + 32'hBD0; \par
+    end else begin\par
+      `uvm_fatal(get_full_name(), "PLEASE PROVIDE MEMORY NAME FOR ZAPHOD TESTING!!!")\par
+    end\par
+\par
+\par
+  void'($value$plusargs("weight_base_addr_val=%x",              weight_base_addr_val));\par
+\tab void'($value$plusargs("cmd_base_addr_val=%x",                 cmd_base_addr_val));\par
+\tab void'($value$plusargs("scratch_buffer_base_addr_val=%x",      scratch_buffer_base_addr_val));\par
+\tab void'($value$plusargs("input_data_stream_base_addr_val=%x",   input_data_stream_base_addr_val));\par
+\tab void'($value$plusargs("output_data_stream_base_addr_val=%x",  output_data_stream_base_addr_val));\par
+\tab void'($value$plusargs("input_mem_name =%s",                   input_mem_name));\par
+\tab void'($value$plusargs("output_mem_name =%s",                  output_mem_name));\par
+\par
+\par
+\par
+    do begin\par
+      bkdr_rd_mem(HANDSHAKE_ADDR, rd_data, "LOW_PWR_BACKUP_RAM");\par
+      #1000ns;\par
+    end\par
+    while(rd_data != 32'hcafebabe);\par
+\par
+\par
+   `uvm_info(get_full_name(), $sformatf("GOT SYNC#1 %0h ", rd_data), UVM_LOW)\par
+\par
+    bkdr_wr_mem(HANDSHAKE_ADDR, 32'h0, "LOW_PWR_BACKUP_RAM");\par
+\par
+    `uvm_info(get_full_name(), "LOAD WEIGHT AND CMD", UVM_LOW)\par
+    test_mem_name = "MRAM";\par
+    super.mem_name = test_mem_name;\par
+    super.base_addr = (TEST_DATA_ADDR);\par
+\par
+    load_mem(\{zaphod_test_path, "/kws_model.hex32"\}, 0, 2);\par
+\par
+   `uvm_info(get_full_name(), "LOAD INPUT DATA", UVM_LOW)\par
+    test_mem_name = "SRAM0";\par
+    super.mem_name = test_mem_name;\par
+    super.base_addr = (input_data_stream_base_addr_val);\par
+    load_mem(\{zaphod_test_path, "/kws_input.hex32"\}, 0, 2);\par
+\par
+    `uvm_info(get_full_name(), "LOAD OUTPUT DATA", UVM_LOW)\par
+\tab   super.mem_name = "REF";\par
+    super.base_addr = output_data_stream_base_addr_val;\par
+\par
+    load_mem(\{zaphod_test_path, "/kws_output.hex32"\}, 0, 2);\par
+\par
+    bkdr_wr_mem(WEIGHT_BASE_ADDR,             weight_base_addr_val,             "LOW_PWR_BACKUP_RAM");\par
+    bkdr_wr_mem(CMD_BASE_ADDR,                cmd_base_addr_val,                "LOW_PWR_BACKUP_RAM");\par
+    bkdr_wr_mem(SCRATCH_BUFFER_BASE_ADDR,     scratch_buffer_base_addr_val,     "LOW_PWR_BACKUP_RAM");\par
+    bkdr_wr_mem(INPUT_DATA_STREAM_BASE_ADDR,  input_data_stream_base_addr_val,  "LOW_PWR_BACKUP_RAM");\par
+    bkdr_wr_mem(OUTUPT_DATA_STREAM_BASE_ADDR, output_data_stream_base_addr_val, "LOW_PWR_BACKUP_RAM");\par
+\par
+    bkdr_wr_mem(HANDSHAKE_ADDR + 32'h8, 32'hdeadbeef, "LOW_PWR_BACKUP_RAM");\par
+\par
+   `uvm_info(get_full_name(), $sformatf("sent SYNC#2 %0h ", 32'hdeadbeef), UVM_LOW)\par
+\par
+    do begin\par
+      bkdr_rd_mem(HANDSHAKE_ADDR + 32'h8, rd_data, "LOW_PWR_BACKUP_RAM");\par
+      #1000ns;\par
+    end\par
+    while(rd_data != 32'hbabecafe);\par
+\par
+   `uvm_info(get_full_name(), $sformatf("GOT SYNC#3 %0h | boot_sequence = %0h ", rd_data, boot_sequence), UVM_LOW)\par
+\par
+\par
+    `uvm_info(get_full_name(), "inside boot sequence!!!", UVM_LOW)\par
+    do begin\par
+      bkdr_rd_mem(HANDSHAKE_ADDR + 32'h8, rd_data, "LOW_PWR_BACKUP_RAM");\par
+      #1000ns;\par
+    end\par
+    while(rd_data != 32'habcdabcd);\par
+\par
+\par
+      bkdr_wr_mem(HANDSHAKE_ADDR + 32'h8, 32'h0, "LOW_PWR_BACKUP_RAM");\par
+      `uvm_info(get_full_name(), "INTERRUPT HANDLED!!!", UVM_LOW)\par
+\par
+      super.mem_name = test_mem_name;\par
+      super.base_addr = output_data_stream_base_addr_val;\par
+\tab\par
+   `uvm_info(get_full_name(), $sformatf("output meme name %s",output_mem_name), UVM_LOW)\par
+\par
+    if(!check_mem()) begin\par
+      `uvm_error(get_full_name(), "OUTPUT STREAM DATA MATCH FAILED!!!")\par
+    end else begin\par
+      `uvm_info(get_full_name(), "OUTPUT STREAM DATA MATCH PASSED!!!", UVM_LOW)\par
+    end\par
+\par
+      `uvm_info(get_full_name(), "SV END SEQUENCE", UVM_LOW)\par
+endtask\par
+endclass : eagle_zaphod_kws_test\par
+}
+ 
