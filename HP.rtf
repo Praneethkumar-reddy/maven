@@ -1,0 +1,544 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\colortbl ;\red0\green0\blue255;}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sl240\slmult1\f0\fs16\lang9 Sub GLS_SDF_SANITY_HP_Status()\par
+    ' Declare variables\par
+    Dim ws As Worksheet, destSheet As Worksheet, wsGLS As Worksheet, wsMain As Worksheet\par
+    Dim csvFile As Workbook, csvSheet As Worksheet, wbRegression As Workbook\par
+    Dim lastRow As Long, destRow As Long, lastRowGLS As Long, lastRowCSV As Long\par
+    Dim mainLastRow As Long, regressionLastRow As Long, lastHeaderColumn As Long\par
+    Dim i As Long, j As Long, col As Long, row As Long\par
+    Dim headerCopied As Boolean\par
+    Dim glsCell As Range, csvRange As Range, foundCell As Range\par
+    Dim mainTestIDs As Range, TestPlanIDs As Range, RegressionIDs As Range\par
+    Dim compareTestIDCol As Range\par
+    Dim glsTrimmed As String, csvTrimmed As String\par
+    Dim testplanTotal As Long, regressionTotal As Long\par
+    Dim tpTestsNotInRegression As Long\par
+    Dim OutputRow As Long\par
+    Dim cell As Range, found As Range\par
+    Dim sheetExcluded As Boolean\par
+    Dim LastRowTestPlan As Long, LastRowRegression As Long\par
+    Dim RegressionID As Range\par
+    Dim lastRowA As Long\par
+    Dim coverage As Double\par
+    Dim counter As Long\par
+    Dim lastRowN As Long\par
+    Dim testIDDict As Object\par
+    Dim testID As String\par
+    Dim sanityArray() As String\par
+    Dim highPriorityArray() As String\par
+    Dim sanityCount As Long\par
+    Dim hpCount As Long\par
+    Dim lastRowByCol As Long, highestLastRow As Long, colIndex As Integer\par
+    Dim r As Long, writeRow As Long\par
+    Dim lastPreviousRow As Long, statsStartRow As Long\par
+    Dim colMDict As Object\par
+    Dim testIDM As String\par
+    Dim OutputRowY As Long\par
+    Dim testValue As String\par
+    Dim foundInSanity As Boolean, foundInHP As Boolean\par
+    Dim missingInTP As Long\par
+    Dim duplicateTests As Long\par
+    Dim columnNCounter As Long\par
+\par
+    ' Initialize arrays\par
+    ReDim sanityArray(1 To 1000)\par
+    ReDim highPriorityArray(1 To 1000)\par
+    sanityCount = 0\par
+    hpCount = 0\par
+\par
+    ' Define SharePoint path for CSV\par
+    Const CSV_FILE_PATH As String = "{{\field{\*\fldinst{HYPERLINK https://alifsemi.sharepoint.com\\\\sites\\\\dv_team\\\\Shared%20Documents\\\\Docs\\\\Eagle_A0\\\\TestPlan\\\\REGRESSION_SHEETS\\\\Regression_sanity_hp.csv }}{\fldrslt{https://alifsemi.sharepoint.com\\sites\\dv_team\\Shared%20Documents\\Docs\\Eagle_A0\\TestPlan\\REGRESSION_SHEETS\\Regression_sanity_hp.csv\ul0\cf0}}}}\f0\fs16 "\par
+\par
+    ' Define excluded sheets array\par
+    Dim excludedSheets As Variant\par
+    excludedSheets = Array("TP_COVERAGE", "TP_COVERAGE_SDF_SANITY_HP", "TP_COVERAGE_UPF", _\par
+                          "TP_COVERAGE_CT_TYP_MAX", "TP_COVERAGE_CT_TYP_MIN", _\par
+                          "TP_COVERAGE_SHMEM_TYP_MAX", "TP_COVERAGE_SHMEM_TYP_MIN", _\par
+                          "TP_COVERAGE_CT_TYP_MAX_MAX", "TP_COVERAGE_CT_TYP_MIN_MIN", _\par
+                          "TP_COVERAGE_SHMEM_TYP_MAX_MAX", "TP_COVERAGE_SHMEM_TYP_MIN_MIN", _\par
+                          "TP_COVERAGE_PG0_DELAY", "TP_COVERAGE_SH_MEM_UPF", _\par
+                          "TP_COVERAGE_SH_MEM_PG0_DELAY", "TP_COVERAGE_SHMEM_SDF_TYP_MIN", _\par
+                          "TP_COVERAGE_SHMEM_SDF_TYP_MAX", "TP_COVERAGE_CT_SDF_TYP_MIN", _\par
+                          "TP_COVERAGE_CT_SDF_TYP_MAX", "TP_COVERAGE_GLS_SDF", "GLS_SDF_SANITY_HP", _\par
+                          "CHIP_TOP", "MBIST", "PINMUX", "apb_i2c", "OSPI_SS", "JPEG_SS", _\par
+                          "MRAM_SS", "ZAPHOD_SS", "ISP_SS", "SHARED_MEM_SS", "MRAM_RC_SS", _\par
+                          "CVM_OCVM_SS", "CPI_ISP_SS", "MRAM_SS_OLD", "OSPI_SS_plan", _\par
+                          "JPEG_SS_OLD", "oldst_TP_COVERAGE_SDF_SANITY_HP")\par
+\par
+    Application.ScreenUpdating = False\par
+\par
+    ' Setup destination sheet\par
+    Set destSheet = ThisWorkbook.Worksheets("TP_COVERAGE_SDF_SANITY_HP")\par
+    If destSheet Is Nothing Then\par
+        Set destSheet = ThisWorkbook.Worksheets.Add(Before:=ThisWorkbook.Sheets(1))\par
+        destSheet.Name = "TP_COVERAGE_SDF_SANITY_HP"\par
+        statsStartRow = 1\par
+        lastPreviousRow = 0\par
+    Else\par
+        ' 1. FIRST PROCESS ROWS: Compact data by removing rows with blank values in key column\par
+        writeRow = 1\par
+        lastPreviousRow = destSheet.Cells(destSheet.Rows.Count, "G").End(xlUp).row\par
+        \par
+        If lastPreviousRow > 0 Then\par
+            For r = 1 To lastPreviousRow\par
+                If Not IsEmpty(destSheet.Cells(r, "H").Value) And _\par
+                   destSheet.Cells(r, "H").Value <> "" Then\par
+                    If r <> writeRow Then\par
+                        destSheet.Range("C" & r & ":K" & r).Copy _\par
+                        destSheet.Range("C" & writeRow)\par
+                    End If\par
+                    writeRow = writeRow + 1\par
+                End If\par
+            Next r\par
+            \par
+            If writeRow <= lastPreviousRow Then\par
+                destSheet.Range("C" & writeRow & ":K" & lastPreviousRow).ClearContents\par
+            End If\par
+        End If\par
+\par
+        ' 2. FIND COLUMN WITH MOST DATA\par
+        highestLastRow = 0\par
+        For colIndex = 1 To 30 ' Column A to AD\par
+            lastRowByCol = destSheet.Cells(destSheet.Rows.Count, colIndex).End(xlUp).row\par
+            If lastRowByCol > highestLastRow Then\par
+                highestLastRow = lastRowByCol + 1\par
+            End If\par
+        Next colIndex\par
+        lastPreviousRow = highestLastRow\par
+\par
+        ' 3. DELETE ROWS: Remove rows below the last data row\par
+        If lastPreviousRow < destSheet.Rows.Count Then\par
+            destSheet.Rows(lastPreviousRow & ":" & destSheet.Rows.Count).Delete\par
+        End If\par
+\par
+        ' 4. HIDE DATA: Hide the processed rows\par
+        If lastPreviousRow > 1 Then\par
+            destSheet.Rows("1:" & lastPreviousRow).Hidden = True\par
+        End If\par
+\par
+        ' 5. ADD NEW DATA: Start adding after the last row with data\par
+        statsStartRow = lastPreviousRow\par
+        destSheet.Move Before:=ThisWorkbook.Sheets(1)\par
+    End If\par
+    \par
+    Set wsMain = destSheet\par
+    destRow = statsStartRow + 1\par
+\par
+    ' Set up headers\par
+    With destSheet\par
+        .Cells(statsStartRow, 1).Value = "SANITY+HP MINMIN coverage"\par
+        .Cells(statsStartRow, 2).Value = "Regression Sheets"\par
+        .Cells(statsStartRow, 3).Value = "Expected in GLS SDF?"\par
+        .Cells(statsStartRow, 4).Value = "SDF MINMIN"\par
+        .Cells(statsStartRow, 5).Value = "SV Test Name"\par
+        .Cells(statsStartRow, 6).Value = "C Test Name"\par
+        .Cells(statsStartRow, 7).Value = "Test ID"\par
+        .Cells(statsStartRow, 8).Value = "TP tests missing from regression"\par
+        .Cells(statsStartRow, 9).Value = "Owner"\par
+        .Cells(statsStartRow, 10).Value = "Comment"\par
+        .Cells(statsStartRow, 11).Value = "Status"\par
+        .Cells(statsStartRow, 13).Value = "Sr.no"\par
+        .Cells(statsStartRow, 14).Value = "Regression tests missing in TP"\par
+        .Cells(statsStartRow, 15).Value = "Owner"\par
+        .Cells(statsStartRow, 16).Value = "Comment"\par
+        .Cells(statsStartRow, 17).Value = "Status"\par
+        .Cells(statsStartRow, 19).Value = "Duplicate Test ID's in regression"\par
+        .Cells(statsStartRow, 20).Value = "Owner"\par
+        .Cells(statsStartRow, 21).Value = "Present in Sanity"\par
+        .Cells(statsStartRow, 22).Value = "Present in HP / HP io"\par
+        .Cells(statsStartRow, 23).Value = "Comment"\par
+        .Cells(statsStartRow, 24).Value = "Status"\par
+        .Cells(statsStartRow, 25).Value = "Duplicate Test ID's in Testplan"\par
+        .Cells(statsStartRow, 26).Value = "Owner"\par
+        .Cells(statsStartRow, 27).Value = "Comment"\par
+        .Cells(statsStartRow, 28).Value = "Status"\par
+    End With\par
+\par
+    ' Process each worksheet\par
+    For Each ws In ThisWorkbook.Worksheets\par
+        sheetExcluded = False\par
+        For i = LBound(excludedSheets) To UBound(excludedSheets)\par
+            If ws.Name = excludedSheets(i) Then\par
+                sheetExcluded = True\par
+                Exit For\par
+            End If\par
+        Next i\par
+\par
+        If Not sheetExcluded And ws.Name <> wsMain.Name Then\par
+            lastRow = ws.Cells(ws.Rows.Count, "I").End(xlUp).row\par
+            For i = 2 To lastRow\par
+                If UCase(ws.Range("I" & i).Text) = "YES" Then\par
+                    destSheet.Cells(destRow, 5).Value = ws.Cells(i, "B").Value\par
+                    destSheet.Cells(destRow, 6).Value = ws.Cells(i, "C").Value\par
+                    destSheet.Cells(destRow, 7).Value = ws.Cells(i, "D").Value\par
+                    destSheet.Cells(destRow, 3).Value = "Yes"\par
+                    destSheet.Cells(destRow, 9).Value = ws.Cells(i, "A").Value\par
+                    destRow = destRow + 1\par
+                End If\par
+            Next i\par
+        End If\par
+    Next ws\par
+\par
+    Set colMDict = CreateObject("Scripting.Dictionary")\par
+    With wsMain\par
+        lastRowM = .Cells(.Rows.Count, "G").End(xlUp).row\par
+        \par
+        For i = statsStartRow + 1 To lastRowM\par
+            testIDM = Trim(.Cells(i, "G").Value)\par
+            If testIDM <> "" Then\par
+                If colMDict.exists(testIDM) Then\par
+                    colMDict(testIDM) = colMDict(testIDM) + 1\par
+                Else\par
+                    colMDict.Add testIDM, 1\par
+                End If\par
+            End If\par
+        Next i\par
+\par
+        OutputRowY = statsStartRow + 1\par
+        For Each key In colMDict.keys\par
+            If colMDict(key) > 1 Then\par
+                .Cells(OutputRowY, 25).Value = key\par
+                OutputRowY = OutputRowY + 1\par
+            End If\par
+        Next key\par
+    End With\par
+\par
+    ' Open regression CSV from SharePoint\par
+    On Error Resume Next\par
+    Set wbRegression = Workbooks.Open(CSV_FILE_PATH)\par
+    If Err.Number <> 0 Then\par
+        MsgBox "Error opening the CSV file from SharePoint. Please check the file path and permissions.", vbCritical\par
+        Application.ScreenUpdating = True\par
+        Exit Sub\par
+    End If\par
+    On Error GoTo 0\par
+\par
+    Set csvSheet = wbRegression.Sheets(1)\par
+    Set testIDDict = CreateObject("Scripting.Dictionary")\par
+\par
+    With wbRegression.Sheets(1)\par
+        lastRowCSV = .Cells(.Rows.Count, "E").End(xlUp).row\par
+        regressionTotal = lastRowCSV - 1\par
+\par
+        For i = 2 To lastRowCSV\par
+            testID = Trim(.Cells(i, "E").Value)\par
+            If testID <> "" Then\par
+                If testIDDict.exists(testID) Then\par
+                    testIDDict(testID) = testIDDict(testID) + 1\par
+                Else\par
+                    testIDDict.Add testID, 1\par
+                End If\par
+            End If\par
+        Next i\par
+\par
+        OutputRow = statsStartRow + 1\par
+        With wsMain\par
+            For Each key In testIDDict.keys\par
+                If testIDDict(key) > 1 Then\par
+                    .Cells(OutputRow, 19).Value = key\par
+                    OutputRow = OutputRow + 1\par
+                End If\par
+            Next key\par
+        End With\par
+    End With\par
+\par
+    Set csvSheet = wbRegression.Sheets(1)\par
+    \par
+    ' Process regression data for arrays\par
+    With csvSheet\par
+        lastRowCSV = .Cells(.Rows.Count, "B").End(xlUp).row\par
+        \par
+        For i = 1 To lastRowCSV\par
+            If InStr(1, .Cells(i, "B").Value, "/chip_top_gls_sanity", vbTextCompare) > 0 Then\par
+                sanityCount = sanityCount + 1\par
+                sanityArray(sanityCount) = .Cells(i, "E").Value\par
+                \par
+            ElseIf InStr(1, .Cells(i, "B").Value, "/chip_top_gls_high_priority", vbTextCompare) > 0 Or _\par
+                   InStr(1, .Cells(i, "B").Value, "/chip_top_fast_gpio", vbTextCompare) > 0 Or _\par
+                   InStr(1, .Cells(i, "B").Value, "/chip_top_soc_lp_upf", vbTextCompare) > 0 Then\par
+                hpCount = hpCount + 1\par
+                highPriorityArray(hpCount) = .Cells(i, "E").Value\par
+            End If\par
+        Next i\par
+    End With\par
+\par
+    ' Resize arrays to actual size\par
+    If sanityCount > 0 Then\par
+        ReDim Preserve sanityArray(1 To sanityCount)\par
+    End If\par
+\par
+    If hpCount > 0 Then\par
+        ReDim Preserve highPriorityArray(1 To hpCount)\par
+    End If\par
+\par
+    ' Compare Column S with arrays and update Columns U and V\par
+    With destSheet\par
+        lastRow = .Cells(.Rows.Count, "S").End(xlUp).row\par
+        For i = statsStartRow + 1 To lastRow\par
+            testValue = .Cells(i, "S").Value\par
+            If testValue <> "" Then\par
+                ' Check if present in sanity array\par
+                foundInSanity = False\par
+                For j = 1 To sanityCount\par
+                    If sanityArray(j) = testValue Then\par
+                        foundInSanity = True\par
+                        Exit For\par
+                    End If\par
+                Next j\par
+                ' Check if present in HP array\par
+                foundInHP = False\par
+               For j = 1 To hpCount\par
+                    If highPriorityArray(j) = testValue Then\par
+                        foundInHP = True\par
+                        Exit For\par
+                    End If\par
+                Next j\par
+                ' Write results\par
+                .Cells(i, "U").Value = IIf(foundInSanity, "Yes", "")\par
+                .Cells(i, "V").Value = IIf(foundInHP, "Yes", "")\par
+            End If\par
+        Next i\par
+    End With\par
+ \par
+    ' Process regression data\par
+    lastRowCSV = csvSheet.Cells(csvSheet.Rows.Count, "E").End(xlUp).row\par
+    mainLastRow = destSheet.Cells(destSheet.Rows.Count, "G").End(xlUp).row\par
+ \par
+    ' Copy regression data to column B (Regression Sheets)\par
+    If lastRowCSV > 1 Then\par
+        csvSheet.Range("G2:G" & lastRowCSV).Copy\par
+        destSheet.Range("B" & (statsStartRow + 1)).PasteSpecial xlPasteValues\par
+    End If\par
+ \par
+    ' Process Test ID comparison\par
+    If mainLastRow >= statsStartRow + 1 Then\par
+        Set mainTestIDs = destSheet.Range("G" & (statsStartRow + 1) & ":G" & mainLastRow)\par
+ \par
+        For Each ws In ThisWorkbook.Worksheets\par
+            sheetExcluded = False\par
+            For i = LBound(excludedSheets) To UBound(excludedSheets)\par
+                If ws.Name = excludedSheets(i) Then\par
+                    sheetExcluded = True\par
+                    Exit For\par
+                End If\par
+            Next i\par
+            If lastRowCSV >= 2 Then\par
+                Set csvRange = csvSheet.Range("E2:E" & lastRowCSV)\par
+                If mainLastRow >= statsStartRow + 1 Then\par
+                    For Each cell In mainTestIDs\par
+                        If Not IsEmpty(cell.Value) Then\par
+                            Set found = csvRange.Find(What:=CStr(cell.Value), _\par
+                                LookIn:=xlValues, _\par
+                                LookAt:=xlWhole, _\par
+                                MatchCase:=False)\par
+                            If Not found Is Nothing Then\par
+                                destSheet.Cells(cell.row, 4).Value = csvSheet.Cells(found.row, "C").Value\par
+                            End If\par
+                        End If\par
+                    Next cell\par
+                End If\par
+            End If\par
+ \par
+            If Not sheetExcluded And ws.Name <> wsMain.Name Then\par
+                lastRow = ws.Cells(ws.Rows.Count, "D").End(xlUp).row\par
+                \par
+                If lastRow >= 2 Then\par
+                    Set compareTestIDCol = ws.Range("D2:D" & lastRow)\par
+                    \par
+                    For Each cell In mainTestIDs\par
+                        If Not IsEmpty(cell.Value) Then\par
+                            Set found = compareTestIDCol.Find(What:=CStr(cell.Value), _\par
+                                LookIn:=xlValues, _\par
+                                LookAt:=xlWhole, _\par
+                                MatchCase:=False)\par
+                                \par
+                            If Not found Is Nothing Then\par
+                                ws.Cells(found.row, "P").Value = destSheet.Cells(cell.row, "D").Value\par
+                            End If\par
+                        End If\par
+                    Next cell\par
+                End If\par
+            End If\par
+        Next ws\par
+    End If\par
+ \par
+    ' Process missing tests\par
+    tpTestsNotInRegression = 0\par
+    For i = statsStartRow + 1 To mainLastRow\par
+        If Trim(destSheet.Cells(i, 4).Value) = "" Then\par
+            destSheet.Cells(i, 8).Value = "Test ID not found"\par
+            tpTestsNotInRegression = tpTestsNotInRegression + 1\par
+        End If\par
+    Next i\par
+ \par
+    ' Calculate totals and process regression tests not in TP\par
+    testplanTotal = mainLastRow - statsStartRow\par
+    regressionTotal = lastRowCSV - 1\par
+    OutputRow = statsStartRow + 1\par
+ \par
+    ' Find regression tests missing in TP\par
+    If lastRowCSV >= 2 Then\par
+        For Each RegressionID In csvRange\par
+            If IsError(Application.Match(RegressionID.Value, mainTestIDs, 0)) Then\par
+                destSheet.Cells(OutputRow, 14).Value = RegressionID.Value\par
+                OutputRow = OutputRow + 1\par
+            End If\par
+        Next RegressionID\par
+    End If\par
+ \par
+  With destSheet\par
+        columnNCounter = 0\par
+        OutputRow = statsStartRow + 1\par
+        \par
+        ' Find regression tests missing in TP with counter\par
+        If lastRowCSV >= 2 Then\par
+            For Each RegressionID In csvRange\par
+                If IsError(Application.Match(RegressionID.Value, mainTestIDs, 0)) Then\par
+                    columnNCounter = columnNCounter + 1\par
+                    .Cells(OutputRow, 13).Value = columnNCounter  ' Counter in column M\par
+                    .Cells(OutputRow, 14).Value = RegressionID.Value  ' Test ID in column N\par
+                    OutputRow = OutputRow + 1\par
+                End If\par
+            Next RegressionID\par
+        End If\par
+    End With\par
+ \par
+    ' Update summary information\par
+    With destSheet\par
+        .Cells(statsStartRow + 1, 1).Value = "Testplan Total Tests"\par
+        .Cells(statsStartRow + 2, 1).Value = testplanTotal\par
+        .Cells(statsStartRow + 3, 1).Value = "Regression Total Tests"\par
+        .Cells(statsStartRow + 4, 1).Value = regressionTotal\par
+        .Cells(statsStartRow + 5, 1).Value = "Testplan vs. Regression coverage"\par
+        \par
+        missingInTP = .Cells(.Rows.Count, 14).End(xlUp).row - statsStartRow\par
+        If missingInTP > 0 Then\par
+            .Cells(statsStartRow + 12, 1).Value = missingInTP\par
+        Else\par
+            .Cells(statsStartRow + 12, 1).Value = 0\par
+        End If\par
+ \par
+        If regressionTotal > 0 Then\par
+            coverage = ((testplanTotal - tpTestsNotInRegression) / testplanTotal) * 100\par
+        Else\par
+            coverage = 0\par
+        End If\par
+        .Cells(statsStartRow + 6, 1).Value = Format(coverage, "0.00") & "%"\par
+ \par
+        .Cells(statsStartRow + 7, 1).Value = "Regression vs. Testplan coverage"\par
+        If testplanTotal > 0 Then\par
+            coverage = ((regressionTotal - missingInTP) / regressionTotal) * 100\par
+        Else\par
+            coverage = 0\par
+        End If\par
+        .Cells(statsStartRow + 8, 1).Value = Format(coverage, "0.00") & "%"\par
+ \par
+        .Cells(statsStartRow + 9, 1).Value = "TP tests not in regression:"\par
+        .Cells(statsStartRow + 10, 1).Value = tpTestsNotInRegression\par
+        .Cells(statsStartRow + 11, 1).Value = "Regression tests not in TP:"\par
+        .Cells(statsStartRow + 13, 1).Value = "Duplicate tests in Regression"\par
+        duplicateTests = .Cells(.Rows.Count, 19).End(xlUp).row - statsStartRow\par
+        .Cells(statsStartRow + 14, 1).Value = duplicateTests\par
+ \par
+        ' Format worksheet\par
+        .Columns("A:B").ColumnWidth = 35\par
+        .Columns("C:D").ColumnWidth = 11\par
+        .Columns("F:H").ColumnWidth = 30\par
+        .Columns("S").ColumnWidth = 30\par
+        .Columns("Y").ColumnWidth = 30\par
+        \par
+    With destSheet\par
+        ' Unwrap text for data range\par
+        With .Range("A" & (statsStartRow + 1) & ":Q" & destRow - 1)\par
+            .WrapText = False\par
+        End With\par
+ \par
+        ' Header Formatting\par
+        With .Range(.Cells(statsStartRow, 1), .Cells(statsStartRow, 28))\par
+            .Interior.Color = RGB(200, 200, 200)\par
+            .Font.Bold = True\par
+            .WrapText = True\par
+            .HorizontalAlignment = xlCenter\par
+            .VerticalAlignment = xlCenter\par
+        End With\par
+ \par
+        ' Apply borders to ranges with data\par
+        lastRowA = .Cells(.Rows.Count, "C").End(xlUp).row\par
+        If lastRowA > statsStartRow Then\par
+            .Range("A" & statsStartRow & ":K" & lastRowA).Borders.LineStyle = xlContinuous\par
+        End If\par
+ \par
+        lastRowM = .Cells(.Rows.Count, "M").End(xlUp).row\par
+        If lastRowM > statsStartRow Then\par
+            .Range("M" & statsStartRow & ":Q" & lastRowM).Borders.LineStyle = xlContinuous\par
+        End If\par
+ \par
+        lastRowM = .Cells(.Rows.Count, "S").End(xlUp).row\par
+        If lastRowM > statsStartRow Then\par
+            .Range("S" & statsStartRow & ":AB" & lastRowM).Borders.LineStyle = xlContinuous\par
+        End If\par
+    End With\par
+ End With\par
+    ' Apply conditional formatting\par
+    Call ApplyFormattingToSheets\par
+ \par
+    ' Close regression workbook\par
+    wbRegression.Close SaveChanges:=False\par
+    Application.ScreenUpdating = True\par
+End Sub\par
+ \par
+Function ApplyFormattingToSheets() As Boolean\par
+    Dim targetSheet As Worksheet\par
+    Dim rangeD As Range\par
+    Dim formats As Variant, fmt As Variant\par
+    Dim sheetNames As Variant, sheetName As Variant\par
+    \par
+    On Error GoTo ErrorHandler\par
+    \par
+    ' Define the sheet names\par
+    sheetNames = Array("TP_COVERAGE_SDF_SANITY_HP")\par
+    \par
+    ' Conditional formatting settings\par
+    formats = Array( _\par
+        Array("passed", RGB(198, 239, 206), RGB(0, 97, 0)), _\par
+        Array("failed", RGB(255, 204, 204), RGB(192, 0, 0)), _\par
+        Array("running", RGB(255, 217, 102), RGB(68, 114, 196)), _\par
+        Array("stopped", RGB(231, 230, 230), RGB(38, 38, 38)), _\par
+        Array("waiting", RGB(135, 206, 235), RGB(38, 38, 38)), _\par
+        Array("TBD", RGB(255, 242, 204), RGB(25, 25, 112)) _\par
+    )\par
+    \par
+    ' Loop through each sheet name in the array\par
+    For Each sheetName In sheetNames\par
+        Set targetSheet = ThisWorkbook.Sheets(sheetName)\par
+        If Not targetSheet Is Nothing Then\par
+            ' Set range for SDF MINMIN column\par
+            Set rangeD = targetSheet.Range("D2:D" & targetSheet.Rows.Count)\par
+            \par
+            ' Apply formatting to SDF MINMIN column\par
+            With rangeD\par
+                .HorizontalAlignment = xlCenter\par
+                .VerticalAlignment = xlTop\par
+                .FormatConditions.Delete\par
+                For Each fmt In formats\par
+                    With .FormatConditions.Add(Type:=xlTextString, String:=fmt(0), TextOperator:=xlContains)\par
+                        .Interior.Color = fmt(1)\par
+                        .Font.Color = fmt(2)\par
+                        .Font.Bold = False\par
+                    End With\par
+                Next fmt\par
+            End With\par
+        End If\par
+        Set targetSheet = Nothing\par
+    Next sheetName\par
+    \par
+    ApplyFormattingToSheets = True\par
+    Exit Function\par
+ \par
+ErrorHandler:\par
+    ApplyFormattingToSheets = False\par
+End Function\par
+}
+ 
