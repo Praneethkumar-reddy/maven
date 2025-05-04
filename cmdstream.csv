@@ -1,0 +1,64 @@
+CMD0,,CMD1,
+NPU_OP_STOP,MASK 0 0 Reserved 0 0 0 0 0 0 0 0 0 0,NPU_SET_IFM_BASE0,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 0 0 0 0 0
+NPU_OP_IRQ,MASK 0 0 Reserved 0 0 0 0 0 0 0 0 0 1,NPU_SET_IFM_BASE1,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 0 0 0 0 1
+NPU_OP_CONV,Reserved WI 0 0 Reserved 0 0 0 0 0 0 0 0 1 0,NPU_SET_IFM_BASE2,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 0 0 0 1 0
+NPU_OP_DEPTHWISE,Reserved 0 0 Reserved 0 0 0 0 0 0 0 0 1 1,NPU_SET_IFM_BASE3,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 0 0 0 1 1
+NPU_OP_POOL,Reserved mode 0 0 Reserved 0 0 0 0 0 0 0 1 0 1,NPU_SET_IFM_STRIDE_X,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 0 0 1 0 0
+NPU_OP_ELEMENTWISE,Reserved mode 0 0 Reserved 0 0 0 0 0 0 0 1 1 0,NPU_SET_IFM_STRIDE_Y,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 0 0 1 0 1
+NPU_OP_RESIZE,Reserved RM 0 0 Reserved 0 0 0 0 0 0 0 1 1 1,NPU_SET_IFM_STRIDE_C,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 0 0 1 1 0
+NPU_OP_DMA_START,Reserved 0 0 Reserved 0 0 0 0 0 1 0 0 0 0,NPU_SET_OFM_BASE0,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 1 0 0 0 0
+NPU_OP_DMA_WAIT,Reserved k 0 0 Reserved 0 0 0 0 0 1 0 0 0 1,NPU_SET_OFM_BASE1,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 1 0 0 0 1
+NPU_OP_KERNEL_WAIT,Reserved n 0 0 Reserved 0 0 0 0 0 1 0 0 1 0,NPU_SET_OFM_BASE2,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 1 0 0 1 0
+NPU_OP_PMU_MASK,Reserved EN 0 0 Reserved 0 0 0 0 0 1 0 0 1 1,NPU_SET_OFM_BASE3,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 1 0 0 1 1
+NPU_SET_IFM_PAD_TOP,Reserved pad 0 0 Reserved 0 1 0 0 0 0 0 0 0 0,NPU_SET_OFM_STRIDE_X,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 1 0 1 0 0
+NPU_SET_IFM_PAD_LEFT,Reserved pad 0 0 Reserved 0 1 0 0 0 0 0 0 0 1,NPU_SET_OFM_STRIDE_Y,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 1 0 1 0 1
+NPU_SET_IFM_PAD_RIGHT,Reserved pad 0 0 Reserved 0 1 0 0 0 0 0 0 1 0,NPU_SET_OFM_STRIDE_C,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 0 1 0 1 1 0
+NPU_SET_IFM_PAD_BOTTOM,Reserved pad 0 0 Reserved 0 1 0 0 0 0 0 0 1 1,NPU_SET_WEIGHT_BASE,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 0 0 0 0 0
+NPU_SET_IFM_DEPTH_M1,depth_m1 0 0 Reserved 0 1 0 0 0 0 0 1 0 0,NPU_SET_WEIGHT_LENGTH,length Reserved 0 1 Reserved 0 0 0 0 1 0 0 0 0 1
+NPU_SET_IFM_PRECISION,ST Reserved AF Res AP R AT 0 0 Reserved 0 1 0 0 0 0 0 1 0 1,NPU_SET_SCALE_BASE,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 0 0 0 1 0
+NPU_SET_IFM_UPSCALE,Reserved MD 0 0 Reserved 0 1 0 0 0 0 0 1 1 1,NPU_SET_SCALE_LENGTH,Reserved length Reserved 0 1 Reserved 0 0 0 0 1 0 0 0 1 1
+NPU_SET_IFM_BROADCAST,Reserved BM 0 0 Reserved 0 1 0 0 0 0 1 0 0 0,NPU_SET_OFM_SCALE,R scale RM Res dbl_rnd shift 0 1 Reserved 0 0 0 0 1 0 0 1 0 0
+NPU_SET_IFM_ZERO_POINT,ZP 0 0 Reserved 0 1 0 0 0 0 1 0 0 1,NPU_SET_IFM_SCALE,R scale Res RM Res dbl_rnd shift 0 1 Reserved 0 0 0 0 1 0 0 1 0 1
+NPU_SET_IFM_WIDTH0_M1,width_m1 0 0 Reserved 0 1 0 0 0 0 1 0 1 0,NPU_SET_IFM2_SCALE,R scale Res RM Res dbl_rnd shift 0 1 Reserved 0 0 0 0 1 0 0 1 1 0
+NPU_SET_IFM_HEIGHT0_M1,height_m1 0 0 Reserved 0 1 0 0 0 0 1 0 1 1,NPU_SET_OP_SCALAR,scalar Reserved 0 1 Reserved 0 0 0 0 1 0 0 1 1 1
+NPU_SET_IFM_HEIGHT1_M1,height_m1 0 0 Reserved 0 1 0 0 0 0 1 1 0 0,NPU_SET_DMA0_SRC,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 1 0 0 0 0
+NPU_SET_IFM_REGION,Reserved region 0 0 Reserved 0 1 0 0 0 0 1 1 1 1,NPU_SET_DMA0_DST,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 1 0 0 0 1
+NPU_SET_OFM_WIDTH_M1,width_m1 0 0 Reserved 0 1 0 0 0 1 0 0 0 1,NPU_SET_DMA0_LEN,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 1 0 0 1 0
+NPU_SET_OFM_HEIGHT_M1,height_m1 0 0 Reserved 0 1 0 0 0 1 0 0 1 0,NPU_SET_DMA0_SRC_STRIDE0,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 1 0 0 1 1
+NPU_SET_OFM_DEPTH_M1,depth_m1 0 0 Reserved 0 1 0 0 0 1 0 0 1 1,NPU_SET_DMA0_SRC_STRIDE1,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 1 0 1 0 0
+NPU_SET_OFM_PRECISION,ST TR RV SM AF Reserved AP AT 0 0 Reserved 0 1 0 0 0 1 0 1 0 0,NPU_SET_DMA0_DST_STRIDE0,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 1 0 1 0 1
+NPU_SET_OFM_BLK_WIDTH_M1,Reserved width_m1 0 0 Reserved 0 1 0 0 0 1 0 1 0 1,NPU_SET_DMA0_DST_STRIDE1,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 1 0 1 1 0
+NPU_SET_OFM_BLK_HEIGHT_M1,Reserved height_m1 0 0 Reserved 0 1 0 0 0 1 0 1 1 0,NPU_SET_DMA0_IDX,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 1 0 1 1 1
+NPU_SET_OFM_BLK_DEPTH_M1,Reserved depth_m1 0 0 Reserved 0 1 0 0 0 1 0 1 1 1,NPU_SET_DMA0_IDX_MAX,R idx_max Reserved 0 1 Reserved 0 0 0 0 1 1 1 0 0 0
+NPU_SET_OFM_ZERO_POINT,ZP 0 0 Reserved 0 1 0 0 0 1 1 0 0 0,NPU_SET_DMA0_IDX_SKIP1,addr_lo Reserved addr_hi 0 1 Reserved 0 0 0 0 1 1 1 0 0 1
+NPU_SET_OFM_WIDTH0_M1,width_m1 0 0 Reserved 0 1 0 0 0 1 1 0 1 0,NPU_SET_IFM2_BASE0,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 0 0 0 0 0
+NPU_SET_OFM_HEIGHT0_M1,height_m1 0 0 Reserved 0 1 0 0 0 1 1 0 1 1,NPU_SET_IFM2_BASE1,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 0 0 0 0 1
+NPU_SET_OFM_HEIGHT1_M1,height_m1 0 0 Reserved 0 1 0 0 0 1 1 1 0 0,NPU_SET_IFM2_BASE2,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 0 0 0 1 0
+NPU_SET_OFM_REGION,Reserved region 0 0 Reserved 0 1 0 0 0 1 1 1 1 1,NPU_SET_IFM2_BASE3,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 0 0 0 1 1
+NPU_SET_KERNEL_WIDTH_M1,width_m1 0 0 Reserved 0 1 0 0 1 0 0 0 0 0,NPU_SET_IFM2_STRIDE_X,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 0 0 1 0 0
+NPU_SET_KERNEL_HEIGHT_M1,height_m1 0 0 Reserved 0 1 0 0 1 0 0 0 0 1,NPU_SET_IFM2_STRIDE_Y,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 0 0 1 0 1
+NPU_SET_KERNEL_STRIDE,Reserved YM Res XM DE DY DXWO YL XL 0 0 Reserved 0 1 0 0 1 0 0 0 1 0,NPU_SET_IFM2_STRIDE_C,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 0 0 1 1 0
+NPU_SET_ACC_FORMAT,Reserved MB R AO AI Res AF 0 0 Reserved 0 1 0 0 1 0 0 1 0 0,NPU_SET_WEIGHT1_BASE,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 1 0 0 0 0
+NPU_SET_ACTIVATION,Reserved AC Reserved table AF 0 0 Reserved 0 1 0 0 1 0 0 1 0 1,NPU_SET_WEIGHT1_LENGTH,length Reserved 0 1 Reserved 0 0 1 0 0 1 0 0 0 1
+NPU_SET_ACTIVATION_MIN,CB 0 0 Reserved 0 1 0 0 1 0 0 1 1 0,NPU_SET_WEIGHT2_BASE,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 1 0 0 1 0
+NPU_SET_ACTIVATION_MAX,CB 0 0 Reserved 0 1 0 0 1 0 0 1 1 1,NPU_SET_WEIGHT2_LENGTH,length Reserved 0 1 Reserved 0 0 1 0 0 1 0 0 1 1
+NPU_SET_WEIGHT_REGION,Reserved region 0 0 Reserved 0 1 0 0 1 0 1 0 0 0,NPU_SET_WEIGHT3_BASE,addr_lo Reserved addr_hi 0 1 Reserved 0 0 1 0 0 1 0 1 0 0
+NPU_SET_SCALE_REGION,Reserved region 0 0 Reserved 0 1 0 0 1 0 1 0 0 1,NPU_SET_WEIGHT3_LENGTH,length Reserved 0 1 Reserved 0 0 1 0 0 1 0 1 0 1
+NPU_SET_RESIZE_X_SCALE_N_M1,Reserved resize_x_scale_n_m1 0 0 Reserved 0 1 0 0 1 0 1 0 1 0,NPU_SET_RESIZE_X_STEP,Reserved blk_step_mod Reserved one_step_modR blk_step_int one_step_int 0 1 Reserved 0 0 1 0 0 1 0 1 1 0
+NPU_SET_RESIZE_Y_SCALE_N_M1,Reserved resize_y_scale_n_m1 0 0 Reserved 0 1 0 0 1 0 1 0 1 1,NPU_SET_RESIZE_Y_STEP,Reserved blk_step_mod Reserved one_step_modR blk_step_int one_step_int 0 1 Reserved 0 0 1 0 0 1 0 1 1 1
+NPU_SET_RESIZE_X_OFFSET,Reserved resize_x_offset 0 0 Reserved 0 1 0 0 1 0 1 1 0 0,NPU_OP_BRANCH,branch_target Reserved CC 0 1 Reserved 0 1 0 0 0 0 0 0 0 0
+NPU_SET_RESIZE_Y_OFFSET,Reserved resize_y_offset 0 0 Reserved 0 1 0 0 1 0 1 1 0 1,,
+NPU_SET_WEIGHT_FORMAT,Reserved WS Reserved WF 0 0 Reserved 0 1 0 0 1 0 1 1 1 0,,
+NPU_SET_BLOCKDEP,Reserved BD 0 0 Reserved 0 1 0 0 1 0 1 1 1 1,,
+NPU_SET_DMA0_DST_REGION,Reserved IM Res RM Reserved region 0 0 Reserved 0 1 0 0 1 1 0 0 0 1,,
+NPU_SET_DMA0_SIZE0,size 0 0 Reserved 0 1 0 0 1 1 0 0 1 0,,
+NPU_SET_DMA0_SIZE1,size 0 0 Reserved 0 1 0 0 1 1 0 0 1 1,,
+NPU_SET_DMA0_IDX_REGION,Reserved region 0 0 Reserved 0 1 0 0 1 1 0 1 0 0,,
+NPU_SET_IFM2_BROADCAST,Reserved BM 0 0 Reserved 0 1 1 0 0 0 0 0 0 0,,
+NPU_SET_IFM2_PRECISION,ST Reserved AF Res AP R AT 0 0 Reserved 0 1 1 0 0 0 0 1 0 1,,
+NPU_SET_IFM2_ZERO_POINT,ZP 0 0 Reserved 0 1 1 0 0 0 1 0 0 1,,
+NPU_SET_IFM2_WIDTH0_M1,width_m1 0 0 Reserved 0 1 1 0 0 0 1 0 1 0,,
+NPU_SET_IFM2_HEIGHT0_M1,height_m1 0 0 Reserved 0 1 1 0 0 0 1 0 1 1,,
+NPU_SET_IFM2_HEIGHT1_M1,height_m1 0 0 Reserved 0 1 1 0 0 0 1 1 0 0,,
+NPU_SET_IFM2_REGION,Reserved region 0 0 Reserved 0 1 1 0 0 0 1 1 1 1,,
+NPU_SET_DMA0_SRC_REGION,Reserved IM SM 0 Reserved region 0 0 Reserved 0 1 0 0 1 1 0 0 0 0,,
