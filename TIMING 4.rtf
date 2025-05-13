@@ -1,0 +1,354 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\colortbl ;\red0\green0\blue255;}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\f0\fs16\lang9 #!/usr/bin/perl\par
+use strict;\par
+use warnings;\par
+use {{\field{\*\fldinst{HYPERLINK File::Find }}{\fldrslt{File::Find\ul0\cf0}}}}\f0\fs16 ;\par
+use Cwd;\par
+use {{\field{\*\fldinst{HYPERLINK File::Basename }}{\fldrslt{File::Basename\ul0\cf0}}}}\f0\fs16 ;\par
+use POSIX qw(strftime);\par
+use Sys::Hostname;\par
+\par
+################################################################################\par
+# Usage: script.pl <output_file> <directory1> [<directory2> ...]\par
+################################################################################\par
+\par
+\par
+\par
+die "Usage: $0 <output_file> <directory1> [<directory2> ...]\\n"\par
+    unless @ARGV >= 2;\par
+my $server_name = hostname();\par
+\par
+# Get current working directory (where script is run)\par
+my $script_run_directory = getcwd();\par
+# -------------------------------------------------------------------------------\par
+# Command-line arguments\par
+# -------------------------------------------------------------------------------\par
+my $output_file = shift @ARGV;\par
+my @directories = @ARGV;\par
+my @regression_directories = ();\par
+foreach my $arg (@ARGV) \{\par
+    # Check if argument is an expanded directory path\par
+    if (-d $arg) \{\par
+        my $parent_dir = $arg;\par
+        $parent_dir =~ s/\\/[^\\/]+$//; # Remove the last subdirectory or file\par
+        unless (grep \{ $_ eq "$parent_dir/*" \} @regression_directories) \{\par
+            push @regression_directories, "$parent_dir/*";\par
+        \}\par
+    \}\par
+    # If it's not an expanded directory, add it directly\par
+    elsif ($arg =~ /^\\//) \{\par
+        push @regression_directories, $arg;\par
+    \}\par
+\}\par
+ \par
+# Detailed text file path\par
+my $detailed_text_file_path = "$script_run_directory/timing_violations_detail.txt";\par
+\par
+# -------------------------------------------------------------------------------\par
+# Configuration and data structures\par
+# -------------------------------------------------------------------------------\par
+\par
+my $report_date = strftime("%d-%m-%Y %H:%M:%S", localtime);\par
+my $specific_file_pattern = 'local_log.log';\par
+my @keywords = (\par
+    'UVM_WARNING :    0',\par
+    'UVM_ERROR :    0',\par
+    'UVM_FATAL :    0'\par
+);\par
+\par
+# Patterns to exclude: Test IDs with these patterns are excluded from processing.\par
+my @exclude_patterns = (qr/^soc_lp_upf/, qr/^stby_stop/, qr/^fast_gpio/, qr/^wounding_lp/, qr/^reset_upf/, qr/on_the_fly_porstn/, qr/porstn_es0_es1_regs_chk$/, qr/warm_rst/, qr/on_the_fly_sw_rst/, qr/exptmst0_onff/, qr/onoff/, qr/^efuse_stop/, qr/^efuse_stby/);\par
+\par
+# Exact Tests to exclude: These are specific test IDs that need to be excluded.\par
+my @excluded_Test_IDs = qw(mhu27 ewic1 firewall17 design_sanity15 design_sanity17 camera71 mipidsi6 cdc23 lp_ymn_hscmp efuse_itcm efuse_hp_boot efuse_lp_boot efuse_rd_ocvm efuse_rd_cvm efuse_v18encheck design_sanity2 design_sanity3 design_sanity5 design_sanity6 design_sanity8 design_sanity9 fullchip_on_the_fly_epor_poresetn_pin host_sys_sw_rst_regs_chk zaphod_hard_reset design_sanity0 i3c_on_off chip_debug6 chip_debug15 wounding_11 design_sanity1 design_sanity4 eth_rmii_rx_systop_pwr_on_off  LPUART_32Byt_TxRx_921600Kbps_PowOnOff_LPYAMIN_LPDTCM_GPIOA es0_es1_porstn_regs_chk es0_es1_porstn_btwn_local_cpu_internal_tcm_xfers wounding_16 expmst0_gpiox_pwr_on_off wounding_18 jpeg01 dave14 LPI2C_Pow_On_Off_LPYmn_GPIOA lpcmp_upf_irq_test1 usb21 sdc_pwr_on_off);\par
+# Check if a test ID matches any exclude pattern or exact word\par
+sub is_excluded \{\par
+    my ($test_id) = @_;\par
+ \par
+    # Check if the test ID matches any pattern\par
+    foreach my $pattern (@exclude_patterns) \{\par
+        return 1 if $test_id =~ /$pattern/;\par
+    \}\par
+ \par
+    # Check if the test ID matches any exact word\par
+    foreach my $word (@excluded_Test_IDs) \{\par
+        return 1 if $test_id eq $word;\par
+    \}\par
+ \par
+    return 0;\par
+\}\par
+my @all_results;\par
+my %unique_flops;\par
+my $count = 1;\par
+my @files_without_reset;\par
+my $total_files_analyzed = 0;\par
+my $total_passed_logs = 0;\par
+my $total_skipped_logs = 0; \par
+my @excluded_test_ids;\par
+\par
+sub escape_csv \{\par
+    my $field = shift;\par
+    return '' unless defined $field;\par
+    if ($field =~ /[,"\\r\\n]/) \{\par
+        $field =~ s/"/""/g;\par
+        $field = qq\{"$field"\};\par
+    \}\par
+    return $field;\par
+\}\par
+\par
+sub process_log_file \{\par
+    my $file_path = shift;\par
+\par
+    my %results = (\par
+        'test_id'            => '',\par
+        'uvm_testname'       => '',\par
+        'timing_violations'  => 0,\par
+        'test_path'          => $file_path,\par
+        'test_name'          => basename(dirname($file_path)),\par
+        'unique_violations'  => [],\par
+    );\par
+\par
+    open(my $fh, '<', $file_path) or die "Can't open file $file_path: $!\\n";\par
+    my $file_content = do \{ local $/; <$fh> \};\par
+    close($fh);\par
+\par
+    if ($file_content =~ /-test_id\\s+(\\S+)/) \{\par
+        $results\{'test_id'\} = $1;\par
+    \}\par
+    if ($file_content =~ /\\+UVM_TESTNAME\\s*=\\s*(\\S+)/) \{\par
+        $results\{'uvm_testname'\} = $1;\par
+    \}\par
+\par
+    my $tb_reset_released = ($file_content =~ /CHIP POR RESET IS RELEASED/);\par
+    if ($tb_reset_released) \{\par
+        print "Found CHIP POR RESET IS RELEASE in $results\{test_name\}\\n";\par
+    \} else \{\par
+        print "NOT Found CHIP POR RESET IS RELEASE in $results\{test_name\}\\n";\par
+        push @files_without_reset, $file_path;\par
+    \}\par
+\par
+    my $after_tb_reset = 0;\par
+    open(my $line_fh, '<', $file_path) or die "Can't open file $file_path: $!\\n";\par
+    my $line_num = 0;\par
+    while (my $line = <$line_fh>) \{\par
+        $line_num++;\par
+        chomp $line;\par
+\par
+        if ($line =~ /CHIP POR RESET IS RELEASED/) \{\par
+            $after_tb_reset = 1;\par
+        \}\par
+\par
+        if ($after_tb_reset && $line =~ /Warning!  Timing violation/) \{\par
+            $results\{'timing_violations'\}++;\par
+            <$line_fh>; <$line_fh>;  # Skip next two lines\par
+            if (my $scope_line = <$line_fh>) \{\par
+                my $time_line = <$line_fh>;\par
+                my $viol_time = "";\par
+                if ($time_line && $time_line =~ /Time:\\s+(\\d+\\s+\\w+)/) \{\par
+                    $viol_time = $1;\par
+                \}\par
+\par
+                if ($scope_line =~ /Scope:(.*)/) \{\par
+                    my $scope = $1;\par
+                    $scope =~ s/^\\s+|\\s+$//g;\par
+\par
+                    unless (exists $unique_flops\{$scope\}) \{\par
+                        push @\{$results\{'unique_violations'\}\}, \{\par
+                            line_num  => $line_num,\par
+                            count     => $count,\par
+                            scope     => $scope,\par
+                            viol_time => $viol_time,\par
+                        \};\par
+                        $unique_flops\{$scope\} = 1;\par
+                        $count++;\par
+                    \}\par
+                \}\par
+            \}\par
+        \}\par
+    \}\par
+    close($line_fh);\par
+\par
+    if (@\{$results\{'unique_violations'\}\}) \{\par
+        push @all_results, \\%results;\par
+    \}\par
+\}\par
+\par
+open(my $out_fh, '>', $output_file) or die "Can't open file $output_file: $!\\n";\par
+\par
+DIRECTORY:\par
+for my $directory (@directories) \{\par
+    unless (-d $directory) \{\par
+        warn "Directory '$directory' does not exist -- skipping.\\n";\par
+        next DIRECTORY;\par
+    \}\par
+\par
+    print "\\n--- Now processing directory: $directory ---\\n";\par
+\par
+    find(\par
+        sub \{\par
+            return unless -f $_ && /$specific_file_pattern$/;\par
+\par
+            open(my $fh, '<', $_) or die "Can't open file $_: $!\\n";\par
+            my $content = do \{ local $/; <$fh> \};\par
+            close($fh);\par
+\par
+            my $matches_all = 1;\par
+            foreach my $keyword (@keywords) \{\par
+                unless ($content =~ /\\Q$keyword\\E/) \{\par
+                    $matches_all = 0;\par
+                    last;\par
+                \}\par
+            \}\par
+\par
+            if ($matches_all) \{\par
+                $total_passed_logs++;  # <- Count all logs that pass the keywords\par
+                if ($content =~ /-test_id\\s+(\\S+)/) \{\par
+                   my $test_id = $1;\par
+                   if (is_excluded($test_id)) \{\par
+                            print "Excluding $_ because test_id '$test_id' matches exclude criteria.\\n";\par
+                            push @excluded_test_ids, $test_id;\par
+\tab\tab\tab     $total_skipped_logs++;\par
+                            return;                    \}\par
+                \}\par
+                print $out_fh "$File::Find::name\\n";\par
+                process_log_file($File::Find::name);\par
+                $total_files_analyzed++;\par
+            \}\par
+        \},\par
+        $directory\par
+    );\par
+\}\par
+\par
+close($out_fh);\par
+\par
+if (@files_without_reset) \{\par
+    print "\\nSummary of files without 'CHIP POR RESET IS RELEASED':\\n";\par
+    print "=" x 50, "\\n";\par
+    foreach my $file (@files_without_reset) \{\par
+        my $test_name = basename(dirname($file));\par
+        printf "%-40s : %s\\n", $test_name, $file;\par
+    \}\par
+    print "\\nTotal files without CHIP POR RESET IS RELEASE: " . scalar(@files_without_reset) . "\\n";\par
+    print "=" x 50, "\\n";\par
+\}\par
+\par
+if (@all_results) \{\par
+    open(my $csv_fh, '>', 'timing_violations.csv') or die "Can't open timing_violations.csv: $!\\n";\par
+    print $csv_fh "Report Generated: $report_date\\n";\par
+    print $csv_fh "Server: $server_name\\n";\par
+    print $csv_fh "Regression Directory: " . join(" ", @regression_directories) . "\\n";  \par
+    print $csv_fh "Detailed Text File Path: $detailed_text_file_path\\n\\n";\par
+    print $csv_fh "/---------------------------------------------\\n";\par
+    print $csv_fh "Total passing logs: $total_passed_logs\\n";\par
+    print $csv_fh "Total logs analyzed: $total_files_analyzed\\n";\par
+    print $csv_fh "Total logs skipped for excluded tests: $total_skipped_logs\\n";\par
+    print $csv_fh "/---------------------------------------------\\n\\n";\par
+    print $csv_fh "Test ID,UVM Testname,Unique Violations,Logfile,DV Owner,DV Status (Open/ In progress/ Reviewed),DV Remarks,Loca                   l Waves Path,PD/Design owner,PD/Design Status(In Progress/ Reviewed/ Fixed/ Deffered),Design/PD comments,DV cross review\\n";\par
+\par
+    foreach my $result (@all_results) \{\par
+        print $csv_fh join(',',\par
+            map \{ escape_csv($_) \} (\par
+                $result->\{test_id\},\par
+                $result->\{uvm_testname\},\par
+                scalar(@\{$result->\{unique_violations\}\}),\par
+                $result->\{test_path\},\par
+                '', '', '', '', '', ''\par
+            )\par
+        ), "\\n";\par
+    \}\par
+\par
+# Print excluded patterns and tests in the desired format\par
+if (@excluded_test_ids || @exclude_patterns) \{\par
+    print $csv_fh "\\n\\n";\par
+    print $csv_fh "Master list for Test exclusions\\n";\par
+ \par
+    # Process exclude patterns\par
+    foreach my $pattern (@exclude_patterns) \{\par
+        # Convert regex object to a human-readable string\par
+        my $formatted_pattern = substr($pattern, 4, -1); # Remove the (?^:) wrapper\par
+        $formatted_pattern =~ s/^\\^//; # Remove leading ^\par
+        $formatted_pattern =~ s/\\$$//; # Remove trailing $\par
+        if ($pattern =~ /^\\^/) \{\par
+            $formatted_pattern .= '*';\par
+        \}\par
+        if ($pattern =~ /\\$$/) \{\par
+            $formatted_pattern = '*' . $formatted_pattern;\par
+        \}\par
+        print $csv_fh "$formatted_pattern\\n";\par
+    \}\par
+ \par
+    # Process exact excluded tests\par
+    foreach my $test (@excluded_Test_IDs) \{\par
+        print $csv_fh "$test\\n";\par
+    \}\par
+\}\par
+    close($csv_fh);\par
+\par
+    open(my $detail_csv_fh, '>', 'timing_violations_detail.csv') or die "Can't open timing_violations_detail.csv: $!\\n";\par
+    print $detail_csv_fh "Report Generated: $report_date\\n";\par
+    print $detail_csv_fh "Server: $server_name\\n";\par
+    print $detail_csv_fh "Test ID,UVM Testname,Viol_Time,Timing_viol_flop_path,Logfile Path,DV Owner,DV Status (Open/ In progress/ Reviewed),DV Remarks,Local Waves Path,PD/Design owner,PD/Design Status(In Progress/ Reviewed/ Fixed) ,Review comments\\n";\par
+\par
+    foreach my $result (@all_results) \{\par
+        foreach my $viol (@\{$result->\{unique_violations\}\}) \{\par
+            print $detail_csv_fh join(',',\par
+                map \{ escape_csv($_) \} (\par
+                    $result->\{test_id\},\par
+                    $result->\{uvm_testname\},\par
+                    $viol->\{viol_time\},\par
+                    $viol->\{scope\},\par
+                    $result->\{test_path\},\par
+                    '', '', '', '', '', ''\par
+                )\par
+            ), "\\n";\par
+        \}\par
+    \}\par
+    close($detail_csv_fh);\par
+\par
+    open(my $detail_fh, '>', 'timing_violations_detail.txt') or die "Can't open timing_violations_detail.txt: $!\\n";\par
+\par
+    print $detail_fh "Timing Violations Detailed Report\\n";\par
+    print $detail_fh "=" x 30, "\\n\\n";\par
+    print $detail_fh "Report Generated: $report_date\\n";\par
+    print $detail_fh "Server: $server_name\\n\\n";\par
+        foreach my $result (@all_results) \{\par
+        print $detail_fh "Test ID: $result->\{test_id\}\\n";\par
+        print $detail_fh "UVM Testname: $result->\{uvm_testname\}\\n";\par
+        print $detail_fh "Logfile Path: $result->\{test_path\}\\n";\par
+        print $detail_fh "Unique Violations: " . scalar(@\{$result->\{unique_violations\}\}) . "\\n\\n";\par
+\par
+        if (@\{$result->\{unique_violations\}\}) \{\par
+            print $detail_fh "Detailed Violations:\\n";\par
+            print $detail_fh "-" x 17, "\\n";\par
+            foreach my $viol (@\{$result->\{unique_violations\}\}) \{\par
+                printf $detail_fh "Time: %s, Viol_Time: %s (Line %d, # %d)\\nTiming_viol_flop_path: %s\\n\\n",\par
+                    ($viol->\{viol_time\} || "Unknown"),\par
+                    ($viol->\{viol_time\} || "Unknown"),\par
+                    $viol->\{line_num\},\par
+                    $viol->\{count\},\par
+                    $viol->\{scope\};\par
+            \}\par
+        \}\par
+        print $detail_fh "=" x 80, "\\n\\n";\par
+    \}\par
+\par
+    close($detail_fh);\par
+\par
+    print "\\nAnalysis complete!\\n";\par
+    print "Summary CSV report saved to: timing_violations.csv\\n";\par
+    print "Detailed CSV report saved to: timing_violations_detail.csv\\n";\par
+    print "Detailed text report saved to: timing_violations_detail.txt\\n";\par
+    print "Total unique timing violations found: " . scalar(keys %unique_flops) . "\\n";\par
+\} else \{\par
+    print "No patterns found in any log files.\\n";\par
+\}\par
+print "Total passing logs: $total_passed_logs\\n";\par
+print "Total logs analyzed: $total_files_analyzed\\n";\par
+print "Total logs skipped for excluded tests: $total_skipped_logs\\n";\par
+\par
+\par
+\par
+}
+ 
