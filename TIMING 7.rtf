@@ -1,0 +1,410 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\colortbl ;\red0\green0\blue255;}
+{\*\generator Riched20 10.0.22621}\viewkind4\uc1 
+\pard\sl240\slmult1\f0\fs16\lang9 #!/usr/bin/perl\par
+use strict;\par
+use warnings;\par
+use {{\field{\*\fldinst{HYPERLINK File::Find }}{\fldrslt{File::Find\ul0\cf0}}}}\f0\fs16 ;\par
+use Cwd;\par
+use {{\field{\*\fldinst{HYPERLINK File::Basename }}{\fldrslt{File::Basename\ul0\cf0}}}}\f0\fs16 ;\par
+use POSIX qw(strftime);\par
+use Sys::Hostname;\par
+use Getopt::Long;\par
+use {{\field{\*\fldinst{HYPERLINK File::Path }}{\fldrslt{File::Path\ul0\cf0}}}}\f0\fs16  qw(make_path);\par
+\par
+my ($netlist_ver, $corner, $list, $help);\par
+my $output_file = "timing_violations.csv";\par
+my $detailed_text_file_path = "timing_violations_detail.txt";\par
+my $detailed_csv_file = "timing_violations_detail.csv";\par
+\par
+GetOptions(\par
+  "netlist_ver=s" => \\$netlist_ver,\par
+  "corner=s" => \\$corner,\par
+  "list=s" => \\$list,\par
+  "help|h" => \\$help,\par
+) or die print_help();\par
+\par
+# Display help if requested\par
+if ($help) \{\par
+  print print_help();\par
+  exit;\par
+\}\par
+\par
+# Validate required arguments\par
+die print_help() unless defined $netlist_ver && defined $corner && defined $list;\par
+\par
+# Validate corner values\par
+my @valid_corners = qw(TYP_MAX TYP_MIN MAXMAX MINMIN);\par
+if (defined $corner && !grep \{ $_ eq $corner \} @valid_corners) \{\par
+  print "ERROR: Invalid corner '$corner'. Valid values are: " . join(", ", @valid_corners) . "\\n\\n";\par
+  die print_help();\par
+\}\par
+\par
+# Validate list values\par
+my @valid_lists = qw(hp sanity hp_io);\par
+if (defined $list && !grep \{ $_ eq $list \} @valid_lists) \{\par
+  print "ERROR: Invalid list type '$list'. Valid values are: " . join(", ", @valid_lists) . "\\n\\n";\par
+  die print_help();\par
+\}\par
+# Create the base directory structure\par
+my $base_dir = "/scratchV/eagle_sdf_timing_violations_check/eagle_chiptop";\par
+my $target_dir = "$\{base_dir\}/$\{netlist_ver\}_$\{corner\}";\par
+my $result_dir = "$\{target_dir\}/$\{list\}";\par
+ \par
+make_path($result_dir) or die "Failed to create directory: $result_dir\\n";\par
+ \par
+# Store the regression directories\par
+my @directories = @ARGV;\par
+my @regression_directories = ();\par
+foreach my $arg (@ARGV) \{\par
+    if (-d $arg) \{\par
+        my $parent_dir = $arg;\par
+        $parent_dir =~ s/\\/[^\\/]+$//;\par
+        unless (grep \{ $_ eq "$parent_dir/*" \} @regression_directories) \{\par
+            push @regression_directories, "$parent_dir/*";\par
+        \}\par
+    \}\par
+    elsif ($arg =~ /^\\//) \{\par
+        push @regression_directories, $arg;\par
+    \}\par
+\} \par
+$output_file = "$result_dir/timing_violations.csv";\par
+$detailed_text_file_path = "$result_dir/timing_violations_detail.txt";\par
+$detailed_csv_file = "$result_dir/timing_violations_detail.csv";\par
+# -------------------------------------------------------------------------------\par
+# Configuration and data structures\par
+# -------------------------------------------------------------------------------\par
+my $server_name = hostname();\par
+my $region = ($server_name =~ /vncsrv/i) ? "US" : $server_name;\par
+my $report_date = strftime("%d-%m-%Y %H:%M:%S", localtime);\par
+my $specific_file_pattern = 'local_log.log';\par
+my @keywords = (\par
+    'UVM_WARNING :    0',\par
+    'UVM_ERROR :    0',\par
+    'UVM_FATAL :    0'\par
+);\par
+\par
+# Patterns to exclude: Test IDs with these patterns are excluded from processing.\par
+my @exclude_patterns = (qr/^soc_lp_upf/, qr/^stby_stop/, qr/^fast_gpio/, qr/^wounding_lp/, qr/^reset_upf/, qr/on_the_fly_porstn/, qr/porstn_es0_es1_regs_chk$/, qr/warm_rst/, qr/on_the_fly_sw_rst/, qr/exptmst0_onff/, qr/onoff/, qr/^efuse_stop/, qr/^efuse_stby/);\par
+\par
+# Exact Tests to exclude: These are specific test IDs that need to be excluded.\par
+my @excluded_Test_IDs = qw(mhu27 ewic1 firewall17 design_sanity15 design_sanity17 camera71 mipidsi6 cdc23 lp_ymn_hscmp efuse_itcm efuse_hp_boot efuse_lp_boot efuse_rd_ocvm efuse_rd_cvm efuse_v18encheck design_sanity2 design_sanity3 design_sanity5 design_sanity6 design_sanity8 design_sanity9 fullchip_on_the_fly_epor_poresetn_pin host_sys_sw_rst_regs_chk zaphod_hard_reset design_sanity0 i3c_on_off chip_debug6 chip_debug15 wounding_11 design_sanity1 design_sanity4 eth_rmii_rx_systop_pwr_on_off  LPUART_32Byt_TxRx_921600Kbps_PowOnOff_LPYAMIN_LPDTCM_GPIOA es0_es1_porstn_regs_chk es0_es1_porstn_btwn_local_cpu_internal_tcm_xfers wounding_16 expmst0_gpiox_pwr_on_off wounding_18 jpeg01 dave14 LPI2C_Pow_On_Off_LPYmn_GPIOA lpcmp_upf_irq_test1 usb21 sdc_pwr_on_off);\par
+# Check if a test ID matches any exclude pattern or exact word\par
+sub is_excluded \{\par
+    my ($test_id) = @_;\par
+ \par
+    # Check if the test ID matches any pattern\par
+    foreach my $pattern (@exclude_patterns) \{\par
+        return 1 if $test_id =~ /$pattern/;\par
+    \}\par
+ \par
+    # Check if the test ID matches any exact word\par
+    foreach my $word (@excluded_Test_IDs) \{\par
+        return 1 if $test_id eq $word;\par
+    \}\par
+ \par
+    return 0;\par
+\}\par
+my @all_results;\par
+my %unique_flops;\par
+my $count = 1;\par
+my @files_without_reset;\par
+my $total_files_analyzed = 0;\par
+my $total_passed_logs = 0;\par
+my $total_skipped_logs = 0; \par
+my @excluded_test_ids;\par
+\par
+sub escape_csv \{\par
+    my $field = shift;\par
+    return '' unless defined $field;\par
+    if ($field =~ /[,"\\r\\n]/) \{\par
+        $field =~ s/"/""/g;\par
+        $field = qq\{"$field"\};\par
+    \}\par
+    return $field;\par
+\}\par
+\par
+sub process_log_file \{\par
+    my $file_path = shift;\par
+\par
+    my %results = (\par
+        'test_id'            => '',\par
+        'uvm_testname'       => '',\par
+        'timing_violations'  => 0,\par
+        'test_path'          => $file_path,\par
+        'test_name'          => basename(dirname($file_path)),\par
+        'unique_violations'  => [],\par
+    );\par
+\par
+    open(my $fh, '<', $file_path) or die "Can't open file $file_path: $!\\n";\par
+    my $file_content = do \{ local $/; <$fh> \};\par
+    close($fh);\par
+\par
+    if ($file_content =~ /-test_id\\s+(\\S+)/) \{\par
+        $results\{'test_id'\} = $1;\par
+    \}\par
+    if ($file_content =~ /\\+UVM_TESTNAME\\s*=\\s*(\\S+)/) \{\par
+        $results\{'uvm_testname'\} = $1;\par
+    \}\par
+\par
+    my $tb_reset_released = ($file_content =~ /CHIP POR RESET IS RELEASED/);\par
+    if ($tb_reset_released) \{\par
+        print "Found CHIP POR RESET IS RELEASE in $results\{test_name\}\\n";\par
+    \} else \{\par
+        print "NOT Found CHIP POR RESET IS RELEASE in $results\{test_name\}\\n";\par
+        push @files_without_reset, $file_path;\par
+    \}\par
+\par
+    my $after_tb_reset = 0;\par
+    open(my $line_fh, '<', $file_path) or die "Can't open file $file_path: $!\\n";\par
+    my $line_num = 0;\par
+    while (my $line = <$line_fh>) \{\par
+        $line_num++;\par
+        chomp $line;\par
+\par
+        if ($line =~ /CHIP POR RESET IS RELEASED/) \{\par
+            $after_tb_reset = 1;\par
+        \}\par
+\par
+        if ($after_tb_reset && $line =~ /Warning!  Timing violation/) \{\par
+            $results\{'timing_violations'\}++;\par
+            <$line_fh>; <$line_fh>;  # Skip next two lines\par
+            if (my $scope_line = <$line_fh>) \{\par
+                my $time_line = <$line_fh>;\par
+                my $viol_time = "";\par
+                if ($time_line && $time_line =~ /Time:\\s+(\\d+\\s+\\w+)/) \{\par
+                    $viol_time = $1;\par
+                \}\par
+\par
+                if ($scope_line =~ /Scope:(.*)/) \{\par
+                    my $scope = $1;\par
+                    $scope =~ s/^\\s+|\\s+$//g;\par
+\par
+                    unless (exists $unique_flops\{$scope\}) \{\par
+                        push @\{$results\{'unique_violations'\}\}, \{\par
+                            line_num  => $line_num,\par
+                            count     => $count,\par
+                            scope     => $scope,\par
+                            viol_time => $viol_time,\par
+                        \};\par
+                        $unique_flops\{$scope\} = 1;\par
+                        $count++;\par
+                    \}\par
+                \}\par
+            \}\par
+        \}\par
+    \}\par
+    close($line_fh);\par
+\par
+    if (@\{$results\{'unique_violations'\}\}) \{\par
+        push @all_results, \\%results;\par
+    \}\par
+\}\par
+\par
+open(my $out_fh, '>', $output_file) or die "Can't open file $output_file: $!\\n";\par
+\par
+DIRECTORY:\par
+for my $directory (@directories) \{\par
+    unless (-d $directory) \{\par
+        warn "Directory '$directory' does not exist -- skipping.\\n";\par
+        next DIRECTORY;\par
+    \}\par
+\par
+    print "\\n--- Now processing directory: $directory ---\\n";\par
+\par
+    find(\par
+        sub \{\par
+            return unless -f $_ && /$specific_file_pattern$/;\par
+\par
+            open(my $fh, '<', $_) or die "Can't open file $_: $!\\n";\par
+            my $content = do \{ local $/; <$fh> \};\par
+            close($fh);\par
+\par
+            my $matches_all = 1;\par
+            foreach my $keyword (@keywords) \{\par
+                unless ($content =~ /\\Q$keyword\\E/) \{\par
+                    $matches_all = 0;\par
+                    last;\par
+                \}\par
+            \}\par
+\par
+            if ($matches_all) \{\par
+                $total_passed_logs++;  # <- Count all logs that pass the keywords\par
+                if ($content =~ /-test_id\\s+(\\S+)/) \{\par
+                   my $test_id = $1;\par
+                   if (is_excluded($test_id)) \{\par
+                            print "Excluding $_ because test_id '$test_id' matches exclude criteria.\\n";\par
+                            push @excluded_test_ids, $test_id;\par
+\tab\tab\tab     $total_skipped_logs++;\par
+                            return;                    \}\par
+                \}\par
+                print $out_fh "$File::Find::name\\n";\par
+                process_log_file($File::Find::name);\par
+                $total_files_analyzed++;\par
+            \}\par
+        \},\par
+        $directory\par
+    );\par
+\}\par
+\par
+close($out_fh);\par
+\par
+if (@files_without_reset) \{\par
+    print "\\nSummary of files without 'CHIP POR RESET IS RELEASED':\\n";\par
+    print "=" x 50, "\\n";\par
+    foreach my $file (@files_without_reset) \{\par
+        my $test_name = basename(dirname($file));\par
+        printf "%-40s : %s\\n", $test_name, $file;\par
+    \}\par
+    print "\\nTotal files without CHIP POR RESET IS RELEASE: " . scalar(@files_without_reset) . "\\n";\par
+    print "=" x 50, "\\n";\par
+\}\par
+\par
+if (@all_results) \{\par
+   open(my $csv_fh, '>', "$result_dir/timing_violations.csv") or die "Can't open $result_dir/timing_violations.csv: $!\\n"; \par
+    print $csv_fh "Report Generation timestamp,$report_date\\n";\par
+    print $csv_fh "Server,$region\\n";\par
+    print $csv_fh "Regression Directory," . join(" ", @regression_directories) . "\\n";  \par
+    print $csv_fh "Detailed Text File Path,$detailed_text_file_path\\n\\n";\par
+    print $csv_fh "Test ID,UVM Testname,Unique Violations,Logfile,DV Owner,DV Status (Open/ In progress/ Reviewed),DV Remarks,Local Waves Path,PD/Design owner,PD/Design Status(In Progress/ Reviewed/ Fixed/ Deffered),Design/PD comments,DV cross review\\n";\par
+\par
+    foreach my $result (@all_results) \{\par
+        print $csv_fh join(',',\par
+            map \{ escape_csv($_) \} (\par
+                $result->\{test_id\},\par
+                $result->\{uvm_testname\},\par
+                scalar(@\{$result->\{unique_violations\}\}),\par
+                $result->\{test_path\},\par
+                '', '', '', '', '', ''\par
+            )\par
+        ), "\\n";\par
+    \}\par
+  print $csv_fh "\\n\\n";\par
+  print $csv_fh "Result Summary,Count\\n";\par
+  print $csv_fh "Passing tests,$total_passed_logs\\n";\par
+  print $csv_fh "Total logs analyzed,$total_files_analyzed\\n";\par
+  print $csv_fh "Total logs skipped for excluded tests,$total_skipped_logs\\n";\par
+  print $csv_fh "\\n";\par
+\par
+if (@excluded_test_ids || @exclude_patterns) \{\par
+    # Add error handling for CSV file operations\par
+    die "CSV file handle not defined" unless defined $csv_fh;\par
+    \par
+    print $csv_fh "\\n\\n";\par
+    print $csv_fh "Master list for Test exclusions\\n";\par
+    \par
+    # Process exclude patterns with proper formatting\par
+    foreach my $pattern (@exclude_patterns) \{\par
+        my $clean_pattern = $pattern;\par
+        \par
+        # Remove forward slashes at start and end\par
+        $clean_pattern =~ s/^\\/|\\/$//g;\par
+        \par
+        # Remove regex syntax markers\par
+        $clean_pattern =~ s/\\(\\?[\\^:]://;  # Remove (?^: or (?:\par
+        $clean_pattern =~ s/\\)$//;         # Remove trailing )\par
+        \par
+        # Add wildcard (*) if pattern had start/end anchors\par
+        if ($clean_pattern =~ /^\\^/) \{\par
+            $clean_pattern =~ s/^\\^//;\par
+            print $csv_fh "$clean_pattern*\\n";\par
+        \}\par
+        elsif ($clean_pattern =~ /\\$/) \{\par
+            $clean_pattern =~ s/\\$//;\par
+            print $csv_fh "*$clean_pattern\\n";\par
+        \}\par
+        else \{\par
+            print $csv_fh "*$clean_pattern*\\n";\par
+        \}\par
+    \}\par
+    \par
+    # Process exact excluded tests\par
+    foreach my $test (@excluded_test_ids) \{\par
+        print $csv_fh "$test\\n";\par
+    \}\par
+\}\par
+  close($csv_fh);\par
+\par
+   open(my $detail_csv_fh, '>', "$result_dir/timing_violations_detail.csv") or die "Can't open $result_dir/timing_violations_detail.csv: $!\\n";    print $detail_csv_fh "Report Generated: $report_date\\n";\par
+    print $detail_csv_fh "Server: $region\\n\\n";\par
+    print $detail_csv_fh "Test ID,UVM Testname,Viol_Time,Timing_viol_flop_path,Logfile Path,DV Owner,DV Status (Open/ In progress/ Reviewed),DV Remarks,Local WavesPath,PD/Design owner,PD/Design Status(In Progress/ Reviewed/ Fixed) ,Review comments\\n";\par
+\par
+    foreach my $result (@all_results) \{\par
+        foreach my $viol (@\{$result->\{unique_violations\}\}) \{\par
+            print $detail_csv_fh join(',',\par
+                map \{ escape_csv($_) \} (\par
+                    $result->\{test_id\},\par
+                    $result->\{uvm_testname\},\par
+                    $viol->\{viol_time\},\par
+                    $viol->\{scope\},\par
+                    $result->\{test_path\},\par
+                    '', '', '', '', '', ''\par
+                )\par
+            ), "\\n";\par
+        \}\par
+    \}\par
+    close($detail_csv_fh);\par
+\par
+    open(my $detail_fh, '>', "$result_dir/timing_violations_detail.txt") or die "Can't open $result_dir/timing_violations_detail.txt: $!\\n";\par
+    print $detail_fh "Timing Violations Detailed Report\\n";\par
+    print $detail_fh "=" x 30, "\\n\\n";\par
+    print $detail_fh "Report Generated: $report_date\\n";\par
+    print $detail_fh "Server: $region\\n\\n";\par
+        foreach my $result (@all_results) \{\par
+        print $detail_fh "Test ID: $result->\{test_id\}\\n";\par
+        print $detail_fh "UVM Testname: $result->\{uvm_testname\}\\n";\par
+        print $detail_fh "Logfile Path: $result->\{test_path\}\\n";\par
+        print $detail_fh "Unique Violations: " . scalar(@\{$result->\{unique_violations\}\}) . "\\n\\n";\par
+\par
+        if (@\{$result->\{unique_violations\}\}) \{\par
+            print $detail_fh "Detailed Violations:\\n";\par
+            print $detail_fh "-" x 17, "\\n";\par
+            foreach my $viol (@\{$result->\{unique_violations\}\}) \{\par
+                printf $detail_fh "Time: %s, Viol_Time: %s (Line %d, # %d)\\nTiming_viol_flop_path: %s\\n\\n",\par
+                    ($viol->\{viol_time\} || "Unknown"),\par
+                    ($viol->\{viol_time\} || "Unknown"),\par
+                    $viol->\{line_num\},\par
+                    $viol->\{count\},\par
+                    $viol->\{scope\};\par
+            \}\par
+        \}\par
+        print $detail_fh "=" x 80, "\\n\\n";\par
+    \}\par
+\par
+    close($detail_fh);\par
+\par
+    print "\\nAnalysis complete!\\n";\par
+    print "Summary CSV report saved to: timing_violations.csv\\n";\par
+    print "Detailed CSV report saved to: timing_violations_detail.csv\\n";\par
+    print "Detailed text report saved to: timing_violations_detail.txt\\n\\n";\par
+   \} else \{\par
+    print "No patterns found in any log files.\\n\\n";\par
+\}\par
+print "/---------------------------------------------\\n";\par
+ print "Total unique timing violations found: " . scalar(keys %unique_flops) . "\\n";\par
+\par
+print "Total passing logs: $total_passed_logs\\n";\par
+print "Total logs analyzed: $total_files_analyzed\\n";\par
+print "Total logs skipped for excluded tests: $total_skipped_logs\\n";\par
+print "/---------------------------------------------\\n\\n";\par
+\par
+# Help subroutine for the script\par
+sub print_help \{\par
+  my $help_text = "===================== Timing Violations Check help =====================\\n";\par
+  $help_text .= "This script analyzes log files for timing violations after chip reset\\n\\n";\par
+  $help_text .= "Required arguments:\\n";\par
+  $help_text .= "\\t -netlist_ver <ver> : Specify netlist version\\n";\par
+  $help_text .= "\\t -corner <corner>   : Specify corner for analysis (TYP_MAX, TYP_MIN, MAXMAX, MINMIN)\\n";\par
+  $help_text .= "\\t -list <type>       : Specify list type (hp, sanity, hp_io)\\n\\n";\par
+  $help_text .= "Optional arguments:\\n";\par
+  $help_text .= "\\t -help, -h          : Display this help message\\n\\n";\par
+  $help_text .= "Additional directories to analyze can be passed as arguments after the options\\n";\par
+  $help_text .= "Example usage:\\n";\par
+  $help_text .= "\\t perl $0 -netlist_ver 3P0_050825_TO -corner TYP_MAX -list hp /path/to/logs\\n";\par
+  $help_text .= "=================================================================\\n";\par
+  return $help_text;\par
+\}\par
+\par
+\par
+}
+ 
